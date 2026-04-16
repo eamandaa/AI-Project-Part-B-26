@@ -4,6 +4,7 @@
 from referee.game import PlayerColor, Coord, Direction, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
+from referee.game import INITIAL_STACK_HEIGHT
 
 class Agent:
     """
@@ -24,21 +25,30 @@ class Agent:
                 print("Testing: I am playing as RED (first player)")
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
+    
+    def heuristic(self, **referee: dict) -> int :
+        """
+        7 factors: 1. Our total stack height 2. Movement advantage 3. How likely opp eat ours
+        4. Opportunities to eat opponent 5. Potential for cascade 6. Potential for central control
+        7. Being in the edge  
+        """
 
     def action(self, **referee: dict) -> Action:
         """
         This method is called by the referee each time it is the agent's turn
         to take an action. It must always return an action object.
         """
+  
 
         # Below we have hardcoded actions to be played depending on whether
         # the agent is playing as BLUE or RED. Obviously this won't work beyond
         # the initial moves of the game, so you should use some game playing
         # technique(s) to determine the best action to take.
+        print("here",self._
+        #print(cell.)
+
 
         # During placement phase (first 8 turns total, 4 per player)
-
-        #Return action - search algo 
         if self._turn_count < 4:
             match self._color:
                 case PlayerColor.RED:
@@ -48,7 +58,12 @@ class Agent:
                     print("Testing: BLUE is playing a PLACE action")
                     return PlaceAction(Coord(7, self._turn_count))
 
-        # During play phase
+        # During play phase - return an action
+        #Base using min max alpha beta pruning 
+
+
+
+        """
         match self._color:
             case PlayerColor.RED:
                 print("Testing: RED is playing a MOVE action")
@@ -56,6 +71,8 @@ class Agent:
             case PlayerColor.BLUE:
                 print("Testing: BLUE is playing a MOVE action")
                 return MoveAction(Coord(7, 0), Direction.Up)
+        """
+       
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
