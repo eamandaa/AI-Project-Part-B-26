@@ -5,7 +5,7 @@ from referee.game import PlayerColor, Coord, Direction, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .baseline_algo import choose_best_action 
+from .alpha_beta import choose_best_action 
 
 
 class Agent:
@@ -47,18 +47,15 @@ class Agent:
             match self._color:
                 case PlayerColor.RED:
                     print("Testing: RED is playing a PLACE action")
-                    #PlaceAction(Coord(0, self._turn_count))
+
                     return PlaceAction(Coord(0, self._turn_count))
                 case PlayerColor.BLUE:
                     print("Testing: BLUE is playing a PLACE action")
-                    #print(PlaceAction(Coord(7, self._turn_count)))
-                    return PlaceAction(Coord(6, self._turn_count))
-        #board = _resolve_place_action(self,)
+                    return PlaceAction(Coord(7, self._turn_count))
 
-        print("here", type(self._board._state))
+
         # During play phase - return an action
         #Base using min max alpha beta pruning 
-       # action = choose_best_action(self,self._board._state,depth = 2)#If it is equals it will maximise
         
         match self._color:
             case PlayerColor.RED:
