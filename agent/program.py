@@ -52,7 +52,7 @@ class Agent:
                 case PlayerColor.BLUE:
                     print("Testing: BLUE is playing a PLACE action")
                     #print(PlaceAction(Coord(7, self._turn_count)))
-                    return PlaceAction(Coord(7, self._turn_count))
+                    return PlaceAction(Coord(6, self._turn_count))
         #board = _resolve_place_action(self,)
 
         print("here", type(self._board._state))
