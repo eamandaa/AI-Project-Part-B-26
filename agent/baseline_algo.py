@@ -205,4 +205,6 @@ def all_legal_actions(self,board) -> list[Action]:
             except IllegalActionException:
                 pass
 
+    #all_actions = eat_actions + cascade_actions + move_actions
+    #return all_actions[:20]
     return eat_actions + cascade_actions + move_actions

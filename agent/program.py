@@ -64,10 +64,10 @@ class Agent:
             case PlayerColor.RED:
                 print("phase", self._board.phase)
                 #print("Testing: RED is playing a MOVE action")
-                return choose_best_action(self,self._board,depth = 4)
+                return choose_best_action(self,self._board,depth = 3)
             case PlayerColor.BLUE:
                 #print("Testing: BLUE is playing a MOVE action")
-                return choose_best_action(self,self._board,depth = 4)
+                return choose_best_action(self,self._board,depth = 3)
        
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
