@@ -56,6 +56,16 @@ def heuristic_func(self,board,agent_color) -> int:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
+
+    if board.game_over:
+        winner = board.winner_color
+        if winner == agent_color:
+            return 100000
+        elif winner == opp_color:
+            return -100000
+        else:
+            return -5000
+        
     #1. height
     agent_total = 0
     opp_total = 0
