@@ -40,7 +40,7 @@ def negascout_pvs(self, board, depth, alpha, beta) -> int: #Each depth of min ma
         else:
             score = -negascout_pvs(self, board, depth - 1,-alpha - 1,-alpha)
             if alpha < score < beta:
-                core = -negascout_pvs(self, board, depth - 1,-beta,-score)
+                score = -negascout_pvs(self, board, depth - 1,-beta,-score)
         board.undo_action()
         alpha = max(alpha,score)
         if alpha >= beta:
