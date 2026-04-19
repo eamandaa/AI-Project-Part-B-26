@@ -7,6 +7,7 @@ from referee.game import PlayerColor, Coord, Direction, \
 from referee.game import Board
 
 from .placement_phase_heuristic import choose_best_action_during_placement
+from .alpha_beta import choose_best_action 
 
 
 class Agent:
@@ -23,14 +24,13 @@ class Agent:
         #Initialise of players
         self._color = color
         self._turn_count = 0
+        self._board = Board()
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
 
-        # initialise the board on both player 
-        self._board = Board()
 
     def action(self, **referee: dict) -> Action:
         """
@@ -42,10 +42,9 @@ class Agent:
         # the agent is playing as BLUE or RED. Obviously this won't work beyond
         # the initial moves of the game, so you should use some game playing
         # technique(s) to determine the best action to take.
+        #print(cell.)
 
         # During placement phase (first 8 turns total, 4 per player)
-
-        #Return action - search algo 
         if self._turn_count < 4:
 
             match self._color:
@@ -55,14 +54,19 @@ class Agent:
                     print("Testing: BLUE is playing a PLACE action")
                     return choose_best_action_during_placement(self._board, 2,self._color)
 
-        # During play phase
+
+        # During play phase - return an action
+        #Base using min max alpha beta pruning 
+        
         match self._color:
             case PlayerColor.RED:
-                print("Testing: RED is playing a MOVE action")
-                return MoveAction(Coord(0, 0), Direction.Down)
+                print("phase", self._board.phase)
+                #print("Testing: RED is playing a MOVE action")
+                return choose_best_action(self,self._board,depth = 3)
             case PlayerColor.BLUE:
-                print("Testing: BLUE is playing a MOVE action")
-                return MoveAction(Coord(7, 0), Direction.Up)
+                #print("Testing: BLUE is playing a MOVE action")
+                return choose_best_action(self,self._board,depth = 3)
+       
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
@@ -93,5 +97,4 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
-            
         self._board.apply_action(action)
