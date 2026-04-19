@@ -29,7 +29,6 @@ def negascout_pvs(self, board, depth, alpha, beta) -> int: #Each depth of min ma
         return heuristic_func(self,board,self._color)
     
     possible_actions = all_legal_actions(self,board)
-
     first = True
     
     for each_action in possible_actions:
@@ -45,7 +44,6 @@ def negascout_pvs(self, board, depth, alpha, beta) -> int: #Each depth of min ma
         alpha = max(alpha,score)
         if alpha >= beta:
             break
-
     return alpha
 
 def heuristic_func(self,board,agent_color) -> int:
