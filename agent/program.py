@@ -4,6 +4,8 @@
 from referee.game import PlayerColor, Coord, Direction, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
+from referee.game import Board
+
 from .Montecarlo_algo import mcts 
 
 
@@ -21,6 +23,7 @@ class Agent:
         #Initialise of players
         self._color = color
         self._turn_count = 0
+        self._board = Board()
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
@@ -86,3 +89,4 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
+        self._board.apply_action(action)

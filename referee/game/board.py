@@ -311,7 +311,7 @@ class Board:
         color = self._turn_color
         opponent = color.opponent
 
-        for coord, cell in self._state.items():
+        for coord, cell in self._state.items(): 
             if cell.color != color:
                 continue
 
@@ -334,7 +334,7 @@ class Board:
             if cell.height >= 2:
                 return True
 
-        return False
+        return False 
 
     @property
     def game_over(self) -> bool:

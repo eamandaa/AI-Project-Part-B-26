@@ -4,10 +4,10 @@ from referee.game import PlayerColor, Coord, Direction, \
 from referee.game import Board
 
 import math
+import time
 
 class MCTS_node:
-    def __init__(self,board, parent=None, action=None):
-        self.board = board #The board state at that node
+    def __init__(self, parent=None, action=None):
         self.parent = parent #Parent node
         self.action = action #previous actions
         self.children = [] #children node
@@ -16,9 +16,11 @@ class MCTS_node:
         self.untried_actions = None #populated on first expansion
 
     def fully_expanded(self):
-        return 0
+        flag_var = self.untried_actions is not None and len(self.untried_actions) == 0
+        return flag_var
     
-    #def game_over(self):
+    def is_ended(self,board):
+        return board.game_over or not board._has_legal_actions()
 
     def UCB1(self,exploration = 1.41): 
         if self.visits == 0:
@@ -27,23 +29,104 @@ class MCTS_node:
 
 
 def mcts(agent,board) -> Action :
-    return 0 
+    root = MCTS_node()
+    start = time.time()
+    time_limit = 3
 
-def select():
+    # while time.time() - start < time_limit:
+    #     node, path = select(root, board)
+    #     print(f"after select: path={len(path)}, children={len(node.children)}, untried={node.untried_actions}")
+
+    #     if not node.is_ended(board):
+    #         node = expand(node, agent, board, path)
+    #         print(f"after expand: path={len(path)}, root children={len(root.children)}")
+
+    #     score = simulate(agent, board)
+    #     print(f"after simulate: score={score}")
+
+    #     backpropogation(node, score, board, path)
+    #     print(f"after backprop: root visits={root.visits}")
+        
+    #     break 
+
+    while time.time() - start < time_limit:
+        # 1. Do selection
+        node, path = select(root,board)
+
+        #2. Expand
+        if node.is_ended(board) == False:
+            node = expand(node,agent,board,path)
+        
+        # 3. Simulate
+        score = simulate(agent,board)
+
+        #4. backpropagation
+        backpropogation(node,score,board,path)
+
+    actions = all_legal_actions(agent, board)
+    
+    # Fallback if root never expanded
+    if not root.children:
+        actions = all_legal_actions(board._turn_color, board)
+        return actions[0] if actions else None
+    
+    best = None
+    best_visits = -math.inf
+
+    for child in root.children:
+        if child.visits > best_visits:
+            best_visits = child.visits
+            best = child
+
+    return best.action
+
+def select(node,board):
+    path = []
+    while node.is_ended(board) == False and node.fully_expanded():
+        best_child = None
+        best_score = -math.inf
+
+        for child in node.children:
+            score = child.UCB1()
+            if score > best_score:
+                best_score = score
+                best_child = child
+
+        node = best_child
+        board.apply_action(node.action)
+        path.append(node)
+
+    return node, path
+
+def expand(node,agent,board,path):
+    if node.untried_actions == None:
+        node.untried_actions = all_legal_actions(board._turn_color,board)
+
+    if node.untried_actions:
+        each_action = node.untried_actions.pop()
+        board.apply_action(each_action)
+        child = MCTS_node(parent=node, action=each_action)
+        node.children.append(child)
+        path.append(child)
+        return child
+    return node  
+
+def simulate(agent,board):
+    return heuristic_func(board, agent._color)
+
+def backpropogation(node,score,board,path):
+    for _ in range(len(path)):
+        board.undo_action()
+    while node is not None:
+        node.wins += score
+        node.visits += 1
+        node = node.parent
+
     return 0
 
-def expand():
-    return 0
-
-def simulate():
-    return 0
-
-def backpropogation():
-    return 0
 
 
-
-def heuristic_func(self,board,agent_color) -> int:
+def heuristic_func(board,agent_color) -> int:
     """
     7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     4. Being in the edge  
