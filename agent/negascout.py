@@ -10,8 +10,7 @@ def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     possible_actions = all_legal_actions(self,board)
     for each_action in possible_actions:
         board.apply_action(each_action)
-        maximizing = False
-        curr_score = min_max_algo(self, maximizing, board, depth-1, alpha= -math.inf, beta = math.inf) 
+        curr_score = negascout_pvs(self, board, depth-1, alpha= -math.inf, beta = math.inf) 
         board.undo_action()
 
         if curr_score > best_score:
@@ -20,9 +19,9 @@ def choose_best_action(self,board,depth) -> Action: #The big picture of min max
              
     return best_action
 
-def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each depth of min max
+def negascout_pvs(self, board, depth, alpha, beta) -> int: #Each depth of min max
     """
-    Determine the next action using min_max algo
+    Determine the next action using mnegascout_pvs
     """
     #Move, eat and cascade
     #Red always goes first -> Max
@@ -30,34 +29,24 @@ def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each dept
         return heuristic_func(self,board,self._color)
     
     possible_actions = all_legal_actions(self,board)
-    if maximizing == True:
-        best_score = -math.inf
-        
-        for each_action in possible_actions:
-            board.apply_action(each_action)
-            new_score = min_max_algo(self,False, board, depth - 1,alpha,beta)
-            board.undo_action()
-            best_score = max(best_score, new_score)
-            alpha = max(alpha, best_score)
-            if alpha >= beta:
-                break
-        return best_score
+
+    first = True
     
-    elif maximizing == False:
-        best_score = math.inf
-        
-        for each_action in possible_actions:
-            board.apply_action(each_action)
-            new_score = min_max_algo(self,True, board, depth - 1,alpha,beta)
-            board.undo_action()
-            best_score = min(best_score, new_score)
-            beta = min(beta, best_score)
-            if alpha >= beta:
-                break
+    for each_action in possible_actions:
+        board.apply_action(each_action)
+        if first:
+            score = -negascout_pvs(self, board, depth - 1,-beta,-alpha)
+            first = False
+        else:
+            score = -negascout_pvs(self, board, depth - 1,-alpha - 1,-alpha)
+            if alpha < score < beta:
+                core = -negascout_pvs(self, board, depth - 1,-beta,-score)
+        board.undo_action()
+        alpha = max(alpha,score)
+        if alpha >= beta:
+            break
 
-        return best_score
-
-    return 0
+    return alpha
 
 def heuristic_func(self,board,agent_color) -> int:
     """
