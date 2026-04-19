@@ -5,7 +5,7 @@ from referee.game import PlayerColor, Coord, Direction, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from agent.negascout import choose_best_action 
+from .negascout import choose_best_action 
 
 
 class Agent:
