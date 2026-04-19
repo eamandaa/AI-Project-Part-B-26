@@ -51,7 +51,6 @@ class Agent:
                 case PlayerColor.RED:
                     return choose_best_action_during_placement(self._board, 2, self._color)
                 case PlayerColor.BLUE:
-                    print("Testing: BLUE is playing a PLACE action")
                     return choose_best_action_during_placement(self._board, 2,self._color)
 
 

@@ -123,10 +123,19 @@ def heuristic_func(self,board,agent_color) -> int:
             if neighbor in board._state:
                 neighbor_cell = board._state[neighbor]
                 if not neighbor_cell.is_empty:
+                    # considering height
+                    # if it is higher than we reward it to get closer, else we run away
                     if is_agent and neighbor_cell.color == opp_color:
-                        agent_eat_threats += cell.height
+                        if neighbor_cell.height < cell.height:
+                            agent_eat_threats += cell.height
+                        else:
+                            agent_eat_threats -= cell.height
+                    # for enemy to eat 
                     elif not is_agent and neighbor_cell.color == agent_color:
-                        opp_eat_threats += cell.height
+                        if cell.height < neighbor_cell.height:
+                            opp_eat_threats += cell.height
+                        else:
+                            opp_eat_threats -= cell.height
     
     
     height_score = agent_total - opp_total
@@ -135,9 +144,9 @@ def heuristic_func(self,board,agent_color) -> int:
     eat_threat_score = agent_eat_threats - opp_eat_threats
     
     score = (
-        10 * height_score
-        + 4 * eat_threat_score
-        + 2 * center_score
+        2 * height_score
+        + 5 * eat_threat_score
+        + 1 * center_score
         - 1 * edge_score
     )
 
