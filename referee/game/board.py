@@ -461,7 +461,7 @@ class Board:
     def _resolve_place_action(self, action: PlaceAction) -> BoardMutation:
         """Resolve a PLACE action during placement phase."""
         self._assert_phase(GamePhase.PLACEMENT)
-        self._assert_coord_valid(action.coord)
+        self._assert_coord_valid(action.coord) 
         self._assert_coord_empty(action.coord)
 
         # After first placement, cannot place adjacent to opponent

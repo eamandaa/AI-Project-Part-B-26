@@ -4,6 +4,8 @@
 from referee.game import PlayerColor, Coord, Direction, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
+from .Montecarlo_algo import mcts 
+
 
 class Agent:
     """
@@ -51,11 +53,9 @@ class Agent:
         # During play phase
         match self._color:
             case PlayerColor.RED:
-                print("Testing: RED is playing a MOVE action")
-                return MoveAction(Coord(0, 0), Direction.Down)
+                return mcts(self,self._board)
             case PlayerColor.BLUE:
-                print("Testing: BLUE is playing a MOVE action")
-                return MoveAction(Coord(7, 0), Direction.Up)
+                return mcts(self,self._board)
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
