@@ -6,6 +6,8 @@ from referee.game import PlayerColor, Coord, Direction, \
 
 from referee.game import Board
 
+from .placement_phase_heuristic import choose_best_action_during_placement
+
 
 class Agent:
     """
@@ -45,14 +47,13 @@ class Agent:
 
         #Return action - search algo 
         if self._turn_count < 4:
-            print(f"Board for {self._color} has len {(self._board._placement_count)}")
+
             match self._color:
                 case PlayerColor.RED:
-                    print("Testing: RED is playing a PLACE action")
-                    return PlaceAction(Coord(0, self._turn_count))
+                    return choose_best_action_during_placement(self._board, 2)
                 case PlayerColor.BLUE:
                     print("Testing: BLUE is playing a PLACE action")
-                    return PlaceAction(Coord(7, self._turn_count))
+                    return choose_best_action_during_placement(self._board, 2)
 
         # During play phase
         match self._color:
