@@ -66,34 +66,19 @@ def score_distance_to_centre(
 
 def score_distance_to_edges(
     curr_coord: Coord,
-    enemy_coords: list[Coord],
-    board: Board 
 ) -> int:
-    
-    penalty = 0
+    """
+    Consider how close we are to the edges 
+    - Mobility
+    - Avoid being trapped in an area 
+    """
 
-    if not enemy_coords:
-        return 0
+    dist_r = min(curr_coord.r, 7 - curr_coord.r)
+    dist_c = min(curr_coord.c, 7 - curr_coord.c)
 
-    for direction in CARDINAL_DIRECTIONS:
-        # Find is there an enmey directly behind us in this direction
-        try:
-            behind = Coord(curr_coord.r - direction.r, curr_coord.c - direction.c)
+    distance_from_edge = min(dist_c, dist_r)
 
-            # Check how many spaces we have before reaching the edge 
-            # Check the next 3 spaces cuz all stack has the same heights in beginning of Play phase
-            if board._within_bounds(behind) and behind in enemy_coords:
-                check = curr_coord
-                for i in range(1,4):
-                    check = Coord(curr_coord.r + (direction.r * i), curr_coord.c + (direction.c * i))
-
-                    if not board._within_bounds(check):
-                        penalty += (4 - i) * 4
-                        break
-        except ValueError:
-            continue
-        
-    return penalty
+    return distance_from_edge * 2
 
 def score_push_off_board_risk(
     curr_coord: Coord,
@@ -255,10 +240,7 @@ def evaluate_board(
 
         score += score_distance_to_centre(my_coord)
 
-        # if my_coord.r == 0 or my_coord.r == 7 or my_coord.c == 0 or my_coord.c == 7:
-        #     score -= 5
-
-        score -= score_distance_to_edges(my_coord, categories['enemy_stack'], board)
+        score += score_distance_to_edges(my_coord)
         score -= score_push_off_board_risk(my_coord, categories['my_stack'], categories['enemy_stack'], board)
         score += score_eat(my_coord, categories['enemy_stack'])
         score += score_friendly_merge(my_coord, categories['my_stack'])
@@ -269,10 +251,7 @@ def evaluate_board(
 
         score -= score_distance_to_centre(enemy_coord)
 
-        # if enemy_coord.r == 0 or enemy_coord.r == 7 or  enemy_coord.c == 0 or  enemy_coord.c == 7:
-        #     score += 5
-
-        score += score_distance_to_edges(enemy_coord, categories['my_stack'], board)
+        score -= score_distance_to_edges(enemy_coord)
         score += score_push_off_board_risk(enemy_coord, categories['enemy_stack'], categories['my_stack'], board)
         score -= score_eat(enemy_coord, categories['my_stack'])
         score -= score_friendly_merge(enemy_coord, categories['enemy_stack'])
