@@ -7,6 +7,7 @@ from referee.game import PlayerColor, Coord, Direction, \
 from referee.game import Board
 
 from .placement_phase_heuristic import choose_best_action_during_placement
+from .moving_order_heuristic import choose_best_action_during_placement_with_move_order
 from .alpha_beta import choose_best_action 
 
 
@@ -31,6 +32,8 @@ class Agent:
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
 
+        self.referee = referee
+
 
     def action(self, **referee: dict) -> Action:
         """
@@ -49,9 +52,15 @@ class Agent:
 
             match self._color:
                 case PlayerColor.RED:
-                    return choose_best_action_during_placement(self._board, 2, self._color)
+                    action = choose_best_action_during_placement_with_move_order(self._board, 2, self._color)
+                    if referee["time_remaining"] is not None:
+                        print(f"time remaining for RED = {referee["time_remaining"]}")
+                    return action
                 case PlayerColor.BLUE:
-                    return choose_best_action_during_placement(self._board, 2,self._color)
+                    action = choose_best_action_during_placement_with_move_order(self._board, 2,self._color)
+                    if referee["time_remaining"] is not None:
+                        print(f"time remaining for BLUE = {referee["time_remaining"]}")
+                    return action
 
 
         # During play phase - return an action
