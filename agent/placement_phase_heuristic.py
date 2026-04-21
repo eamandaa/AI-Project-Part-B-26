@@ -170,6 +170,30 @@ def score_eat(
     else:
         return 0
     
+def score_mobility(
+    curr_coord: Coord,
+    board: Board,
+) -> int:
+    """
+    Give a score based on empty cell
+    Merge already handle seperately
+    """
+    score = 0
+
+    for direction in CARDINAL_DIRECTIONS:
+        coord_r = curr_coord.r + direction.r
+        coord_c = curr_coord.c + direction.c
+
+        if not board._is_within_bounds(coord_r, coord_c):
+            continue
+
+        coord = Coord(coord_r, coord_c)
+
+        if board[coord].is_empty:
+            score += 2
+    
+    return score
+
 def score_friendly_merge(
     curr_coord: Coord,
     friend_coords: list[Coord],
@@ -239,7 +263,7 @@ def evaluate_board(
         # score += (10 - distance)
 
         score += score_distance_to_centre(my_coord)
-
+        score += score_mobility(my_coord, board)
         score += score_distance_to_edges(my_coord)
         score -= score_push_off_board_risk(my_coord, categories['my_stack'], categories['enemy_stack'], board)
         score += score_eat(my_coord, categories['enemy_stack'])
@@ -250,7 +274,7 @@ def evaluate_board(
         # score -= (10 - distance)
 
         score -= score_distance_to_centre(enemy_coord)
-
+        score -= score_mobility(enemy_coord, board)
         score -= score_distance_to_edges(enemy_coord)
         score += score_push_off_board_risk(enemy_coord, categories['enemy_stack'], categories['my_stack'], board)
         score -= score_eat(enemy_coord, categories['my_stack'])
