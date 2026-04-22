@@ -219,7 +219,7 @@ def heuristic_func(board,agent_color) -> int:
                         else:
                             agent_cascade_push += cell.height
 
-        elif not is_agent and neighbor_cell.color == agent_color:
+        elif not is_agent and neighbor_cell.color == agent_color:#Count for opponent
             if cell.height >= 2:
                 reach = cell.height
                 dr = abs(coord.r - neighbor.r)

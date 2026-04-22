@@ -7,7 +7,7 @@ from referee.game import PlayerColor, Coord, Direction, \
 from referee.game import Board
 
 from .Montecarlo_algo import mcts 
-from agent.placement_phase_heuristic import choose_best_action_during_placement
+from .placement_phase_heuristic import choose_best_action_during_placement
 
 
 
