@@ -189,7 +189,7 @@ def heuristic_func(board,agent_color) -> int:
             try:
                 neighbor = coord + direction
             except ValueError:
-                continue
+                continue #No neighbour nearby
             if neighbor in board._state:
                 neighbor_cell = board._state[neighbor]
                 if not neighbor_cell.is_empty:
@@ -242,7 +242,7 @@ def heuristic_func(board,agent_color) -> int:
     edge_score = agent_edge - opp_edge
     eat_threat_score = agent_eat_threats - opp_eat_threats
     cascade_score = agent_cascade_push - opp_cascade_push
-    
+
     score = (
         10 * height_score
         + 4 * eat_threat_score
