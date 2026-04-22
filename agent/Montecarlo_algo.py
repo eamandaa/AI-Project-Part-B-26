@@ -160,6 +160,9 @@ def heuristic_func(board,agent_color) -> int:
     agent_eat_threats = 0
     opp_eat_threats= 0
 
+    agent_cascade_push = 0
+    opp_cascade_push = 0
+
     for coord, cell in board._state.items():
         is_agent = (cell.color == agent_color)
         if cell.is_empty:
@@ -190,20 +193,60 @@ def heuristic_func(board,agent_color) -> int:
             if neighbor in board._state:
                 neighbor_cell = board._state[neighbor]
                 if not neighbor_cell.is_empty:
-                    if is_agent and neighbor_cell.color == opp_color:
+                    if is_agent and neighbor_cell.color == opp_color and neighbor_cell.height <= cell.height:
                         agent_eat_threats += cell.height
-                    elif not is_agent and neighbor_cell.color == agent_color:
+                    elif not is_agent and neighbor_cell.color == agent_color and neighbor_cell.height >= cell.height:
                         opp_eat_threats += cell.height
     
+        #Heuristic taking account of cascade and push
+        if is_agent and cell.height >= 2:
+                reach = cell.height
+                # check if enemy is in same row or col within cascade reach
+                dr = abs(coord.r - neighbor.r)
+                dc = abs(coord.c - neighbor.c)
+                if neighbor_cell.color == opp_color:
+                    if dr == 0 and dc <= reach:  # same row, can cascade
+                        # bonus if push sends them toward edge
+                        push_col = neighbor.c + (reach - dc)
+                        if push_col >= 7 or push_col <= 0:
+                            agent_cascade_push += cell.height * 2  # big bonus near edge
+                        else:
+                            agent_cascade_push += cell.height
+                    if dc == 0 and dr <= reach:  # same col, can cascade
+                        push_row = neighbor.r + (reach - dr)
+                        if push_row >= 7 or push_row <= 0:
+                            agent_cascade_push += cell.height * 2
+                        else:
+                            agent_cascade_push += cell.height
+
+        elif not is_agent and neighbor_cell.color == agent_color:
+            if cell.height >= 2:
+                reach = cell.height
+                dr = abs(coord.r - neighbor.r)
+                dc = abs(coord.c - neighbor.c)
+                if dr == 0 and dc <= reach:
+                    push_col = neighbor.c + (reach - dc)
+                    if push_col >= 7 or push_col <= 0:
+                        opp_cascade_push += cell.height * 2
+                    else:
+                        opp_cascade_push += cell.height
+                if dc == 0 and dr <= reach:
+                    push_row = neighbor.r + (reach - dr)
+                    if push_row >= 7 or push_row <= 0:
+                        opp_cascade_push += cell.height * 2
+                    else:
+                        opp_cascade_push += cell.height
     
     height_score = agent_total - opp_total
     center_score = agent_center - opp_center
     edge_score = agent_edge - opp_edge
     eat_threat_score = agent_eat_threats - opp_eat_threats
+    cascade_score = agent_cascade_push - opp_cascade_push
     
     score = (
         10 * height_score
         + 4 * eat_threat_score
+        + 6 * cascade_score
         + 2 * center_score
         - 1 * edge_score
     )

@@ -10,7 +10,6 @@ from .Montecarlo_algo import mcts
 from agent.placement_phase_heuristic import choose_best_action_during_placement
 
 
-
 class Agent:
     """
     This class is the "entry point" for your agent, providing an interface to
@@ -32,9 +31,6 @@ class Agent:
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
 
-        # initialise the board on both player 
-        self._board = Board()
-
     def action(self, **referee: dict) -> Action:
         """
         This method is called by the referee each time it is the agent's turn
@@ -55,7 +51,6 @@ class Agent:
                     return choose_best_action_during_placement(self._board, 2, self._color)
                 case PlayerColor.BLUE:
                     return choose_best_action_during_placement(self._board, 2,self._color)
-
         # During play phase
         match self._color:
             case PlayerColor.RED:
@@ -92,5 +87,4 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
-            
         self._board.apply_action(action)
