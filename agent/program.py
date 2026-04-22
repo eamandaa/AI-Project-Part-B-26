@@ -30,6 +30,9 @@ class Agent:
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
 
+        # initialise the board on both player 
+        self._board = Board()
+
     def action(self, **referee: dict) -> Action:
         """
         This method is called by the referee each time it is the agent's turn
@@ -45,6 +48,7 @@ class Agent:
 
         #Return action - search algo 
         if self._turn_count < 4:
+            print(f"Board for {self._color} has len {(self._board._placement_count)}")
             match self._color:
                 case PlayerColor.RED:
                     print("Testing: RED is playing a PLACE action")
@@ -89,4 +93,5 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
+            
         self._board.apply_action(action)
