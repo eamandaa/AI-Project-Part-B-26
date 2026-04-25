@@ -7,7 +7,7 @@ from referee.game import PlayerColor, Coord, Direction, \
 from referee.game import Board
 
 from .placement_phase_heuristic import choose_best_action_during_placement
-from .moving_order_heuristic import choose_best_action_during_placement_with_move_order
+from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap
 from .alpha_beta import choose_best_action 
 
 
@@ -26,13 +26,34 @@ class Agent:
         self._color = color
         self._turn_count = 0
         self._board = Board()
+        self._my_cells, self._opponent_cells, self._empty_cells = self._find_cells(self._board, color)
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
+        self._distance_heatmap = compute_distance_heatmap()
 
         self.referee = referee
+
+    def _find_cells(
+        self, 
+        board: Board, 
+        my_colour: PlayerColor
+    ) -> tuple[list[Coord], list[Coord], list[Coord]]:
+        my_cells = []
+        opponent_cells = []
+        empty_cells = []
+
+        for coord, cell in board._state.items():
+            if cell.is_empty:
+                empty_cells.append(coord)
+            elif cell.color == my_colour:
+                my_cells.append(coord)
+            else:
+                opponent_cells.append(coord)
+
+        return my_cells, opponent_cells, empty_cells
 
 
     def action(self, **referee: dict) -> Action:
@@ -52,14 +73,30 @@ class Agent:
 
             match self._color:
                 case PlayerColor.RED:
-                    action = choose_best_action_during_placement_with_move_order(self._board, 2, self._color)
+                    action = choose_best_action_during_placement_with_move_order(
+                        self._board, 
+                        4, 
+                        self._color,
+                        self._empty_cells,
+                        self._distance_heatmap
+                    )
                     if referee["time_remaining"] is not None:
                         print(f"time remaining for RED = {referee["time_remaining"]}")
+                    if referee['space_remaining'] is not None:
+                        print(f"space remaining for RED = {referee["space_remaining"]}")
                     return action
                 case PlayerColor.BLUE:
-                    action = choose_best_action_during_placement_with_move_order(self._board, 2,self._color)
+                    action = choose_best_action_during_placement_with_move_order(
+                        self._board, 
+                        4, 
+                        self._color,
+                        self._empty_cells,
+                        self._distance_heatmap
+                    )
                     if referee["time_remaining"] is not None:
                         print(f"time remaining for BLUE = {referee["time_remaining"]}")
+                    if referee['space_remaining'] is not None:
+                        print(f"space remaining for BLUE = {referee["space_remaining"]}")
                     return action
 
 
@@ -105,4 +142,7 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
+        
         self._board.apply_action(action)
+        self._my_cells, self._opponent_cells, self._empty_cells = self._find_cells(self._board, self._color)
+

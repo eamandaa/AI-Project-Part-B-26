@@ -37,6 +37,21 @@ def manhanttan_distance(
     """Calculate the distance of the coordinates using Manhattan distance"""
     return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
+def compute_distance_heatmap():
+    '''
+    Save the distance and score in a heatmap and lookup later 
+    '''
+    heatmap = []
+    for r in range(constants.BOARD_N):
+        row = []
+        for c in range(constants.BOARD_N):
+            coord = Coord(r, c)
+            combined_score = score_distance_to_centre(coord) + score_distance_to_edges(coord)
+            row.append(combined_score)
+        heatmap.append(row)
+
+    return heatmap
+
 def score_distance_to_centre(
     curr_coord: Coord
  ) -> int:
@@ -63,6 +78,7 @@ def score_distance_to_centre(
     final_score = dist_r + dist_c
 
     return final_score
+
 
 def score_distance_to_edges(
     curr_coord: Coord,
@@ -209,7 +225,8 @@ def score_friendly_merge(
 
 def evaluate_board(
     board:Board,
-    my_colour: PlayerColor
+    my_colour: PlayerColor,
+    distance_heatmap : list[list[int]]
 ) -> int:
     """
     Calculate the gap between my stacks and enemy's stacks
@@ -230,17 +247,12 @@ def evaluate_board(
 
     score = 0
 
-    centre = constants.BOARD_N // 2
-    coord_centre = Coord(centre, centre)
-
     for my_coord in categories['my_stack']:
         # distance from centre to current coordinate
         # distance = manhanttan_distance(my_coord, coord_centre)
         # score += (10 - distance)
 
-        score += score_distance_to_centre(my_coord)
-
-        score += score_distance_to_edges(my_coord)
+        score += distance_heatmap[my_coord.r][my_coord.c]
         score -= score_push_off_board_risk(my_coord, categories['my_stack'], categories['enemy_stack'], board)
         score += score_eat(my_coord, categories['enemy_stack'])
         score += score_friendly_merge(my_coord, categories['my_stack'])
@@ -248,10 +260,8 @@ def evaluate_board(
     for enemy_coord in categories['enemy_stack']:
         # distance = manhanttan_distance(enemy_coord, coord_centre)
         # score -= (10 - distance)
-
-        score -= score_distance_to_centre(enemy_coord)
-
-        score -= score_distance_to_edges(enemy_coord)
+        
+        score -= distance_heatmap[enemy_coord.r][enemy_coord.c]
         score += score_push_off_board_risk(enemy_coord, categories['enemy_stack'], categories['my_stack'], board)
         score -= score_eat(enemy_coord, categories['my_stack'])
         score -= score_friendly_merge(enemy_coord, categories['enemy_stack'])
@@ -262,6 +272,8 @@ def choose_best_action_during_placement_with_move_order(
     board: Board,
     depth: int,
     agent_colour: PlayerColor,
+    empty_cells: list[Coord],
+    distance_heatmap: list[list[int]]
 ) -> Action:
     """
     Evaluate each possible action based on the score then return 
@@ -271,12 +283,21 @@ def choose_best_action_during_placement_with_move_order(
     best_action = None
     best_score = float("-inf")
 
-    possible_actions = all_legal_actions_during_pacement(board, agent_colour)
+    possible_actions = all_legal_actions_during_pacement(board, agent_colour, empty_cells)
 
     for action in possible_actions:
         board.apply_action(action)
         maximizing = (board.turn_color == agent_colour)
-        curr_score = min_max_algo(maximizing, board, depth-1, alpha= float("-inf"), beta = float("inf"), my_colour=agent_colour) 
+        curr_score = min_max_algo(
+            maximizing, 
+            board, 
+            depth-1, 
+            alpha= float("-inf"), 
+            beta = float("inf"), 
+            my_colour=agent_colour,
+            empty_cells=empty_cells,
+            distance_heatmap=distance_heatmap
+        ) 
         board.undo_action()
 
         if curr_score > best_score:
@@ -287,7 +308,8 @@ def choose_best_action_during_placement_with_move_order(
 
 def all_legal_actions_during_pacement(
     board: Board,
-    agent_colour: PlayerColor
+    agent_colour: PlayerColor,
+    empty_cells: list[Coord],
 ) -> list[Action]:
     """
     Find all possible Placement action that doesn't violate the 
@@ -295,14 +317,11 @@ def all_legal_actions_during_pacement(
     """
     place_actions = {}
 
-    for coord, cell in board._state.items():
-        if not cell.is_empty:
-            continue
-        
+    for coord in empty_cells:
         try:
             place = PlaceAction(coord)
             board._resolve_place_action(place)
-            place_score = score_moving_order(board, coord,agent_colour)
+            place_score = score_moving_order(board,coord,agent_colour)
             place_actions[place] = place_score
         except IllegalActionException:
             pass
@@ -318,6 +337,8 @@ def min_max_algo(
     alpha: float, 
     beta: float,
     my_colour: PlayerColor,
+    empty_cells: list[Coord],
+    distance_heatmap: list[list[int]]
 ) -> int: 
     """
     Determine the next action using min_max algo
@@ -326,16 +347,16 @@ def min_max_algo(
     #Red always goes first -> Max
 
     if board.turn_count == constants.PLACEMENT_TURNS or not board._has_legal_actions() or depth == 0:
-        return evaluate_board(board,my_colour)
+        return evaluate_board(board,my_colour, distance_heatmap)
     
-    possible_actions = all_legal_actions_during_pacement(board, my_colour)
+    possible_actions = all_legal_actions_during_pacement(board, my_colour, empty_cells)
 
     if maximizing:
         best_score = float('-inf')
         
         for each_action in possible_actions:
             board.apply_action(each_action)
-            new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour)
+            new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap)
             board.undo_action()
             best_score = max(best_score, new_score)
             alpha = max(alpha, best_score)
@@ -348,7 +369,7 @@ def min_max_algo(
     
         for each_action in possible_actions:
             board.apply_action(each_action)
-            new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour)
+            new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap)
             board.undo_action()
             best_score = min(best_score, new_score)
             beta = min(beta, best_score)
@@ -381,7 +402,7 @@ def score_moving_order(
 
             coord = Coord(coord_r, coord_c)
 
-            cell_state = board[coord]
+            cell_state = board.__getitem__(coord)
 
             # degree of movement 
             if cell_state.is_empty:
