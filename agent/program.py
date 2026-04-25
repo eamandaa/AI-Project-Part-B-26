@@ -82,7 +82,7 @@ class Agent:
                 case PlayerColor.RED:
                     action = choose_best_action_during_placement_with_move_order(
                         self._board, 
-                        2, 
+                        3, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
@@ -96,7 +96,7 @@ class Agent:
                 case PlayerColor.BLUE:
                     action = choose_best_action_during_placement_with_move_order(
                         self._board, 
-                        2, 
+                        3, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,

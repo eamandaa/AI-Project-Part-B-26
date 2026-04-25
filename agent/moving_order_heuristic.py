@@ -350,10 +350,11 @@ def min_max_algo(
     """
     # Create hash
     hash_key = compute_hash(board)
+    tt_move = None
 
     # check whether already visit this board state before 
     if hash_key in transposition_table:
-        stored_depth, stored_value, score_flag = transposition_table[hash_key]
+        stored_depth, stored_value, score_flag, stored_best_move = transposition_table[hash_key]
         if stored_depth >= depth:
             if score_flag == ScoreFlag.EXACT:
                 return stored_value
@@ -361,17 +362,24 @@ def min_max_algo(
                 return stored_value
             if score_flag == ScoreFlag.UPPER_BOUND and stored_value <= alpha:
                 return stored_value
+        tt_move = stored_best_move
 
     # leaf node / terminal node 
     if board.turn_count == constants.PLACEMENT_TURNS or not board._has_legal_actions() or depth == 0:
         value = evaluate_board(board,my_colour, distance_heatmap)
-        transposition_table[hash_key] = (depth, value, ScoreFlag.EXACT)
+        transposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
         return value
     
     # generate move 
     possible_actions = all_legal_actions_during_pacement(board, my_colour, empty_cells)
 
+    # let tt be the first one, as it is prove better than heuristic guess
+    if tt_move is not None and tt_move in possible_actions:
+        possible_actions.remove(tt_move)
+        possible_actions.insert(0, tt_move)
+
     alpha_original = alpha
+    best_move = None
 
     if maximizing:
         best_score = float('-inf')
@@ -380,43 +388,36 @@ def min_max_algo(
             board.apply_action(each_action)
             new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
             board.undo_action()
-            best_score = max(best_score, new_score)
+            if new_score > best_score:
+                best_score = new_score
+                best_move = each_action
             alpha = max(alpha, best_score)
             if alpha >= beta:
                 break
-
-        if best_score <= alpha_original:
-            score_flag = ScoreFlag.UPPER_BOUND
-        elif best_score >= beta:
-            score_flag = ScoreFlag.LOWER_BOUND
-        else:
-            score_flag = ScoreFlag.EXACT
-
-        transposition_table[hash_key] = (depth, best_score, score_flag)
-        return best_score
     
-    elif maximizing == False:
+    else:
         best_score = float('inf')
     
         for each_action in possible_actions:
             board.apply_action(each_action)
             new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
             board.undo_action()
-            best_score = min(best_score, new_score)
+            if new_score < best_score:
+                best_score = new_score
+                best_move = each_action
             beta = min(beta, best_score)
             if alpha >= beta:
                 break
 
-        if best_score <= alpha_original:
-            score_flag = ScoreFlag.UPPER_BOUND
-        elif best_score >= beta:
-            score_flag = ScoreFlag.LOWER_BOUND
-        else:
-            score_flag = ScoreFlag.EXACT
+    if best_score <= alpha_original:
+        score_flag = ScoreFlag.UPPER_BOUND
+    elif best_score >= beta:
+        score_flag = ScoreFlag.LOWER_BOUND
+    else:
+        score_flag = ScoreFlag.EXACT
 
-        transposition_table[hash_key] = (depth, best_score, score_flag)
-        return best_score
-    return 0
+    transposition_table[hash_key] = (depth, best_score, score_flag, best_move)
+    return best_score
 
 def score_moving_order(
     board: Board,
