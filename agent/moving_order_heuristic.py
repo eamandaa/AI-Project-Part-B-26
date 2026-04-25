@@ -29,6 +29,7 @@ Potential idea to improve
 
 
 from referee.game import Board, Coord, constants, PlayerColor, CARDINAL_DIRECTIONS, Action, PlaceAction, IllegalActionException
+from .zobrist_hashing import compute_hash, get_zobrist_table, ScoreFlag
 
 def manhanttan_distance(
     coord_one: Coord,
@@ -273,9 +274,11 @@ def choose_best_action_during_placement_with_move_order(
     depth: int,
     agent_colour: PlayerColor,
     empty_cells: list[Coord],
-    distance_heatmap: list[list[int]]
+    distance_heatmap: list[list[int]],
+    transposition_table: dict
 ) -> Action:
     """
+    main entry point 
     Evaluate each possible action based on the score then return 
     the action with highest score 
     """
@@ -296,7 +299,8 @@ def choose_best_action_during_placement_with_move_order(
             beta = float("inf"), 
             my_colour=agent_colour,
             empty_cells=empty_cells,
-            distance_heatmap=distance_heatmap
+            distance_heatmap=distance_heatmap,
+            transposition_table = transposition_table
         ) 
         board.undo_action()
 
@@ -338,30 +342,57 @@ def min_max_algo(
     beta: float,
     my_colour: PlayerColor,
     empty_cells: list[Coord],
-    distance_heatmap: list[list[int]]
+    distance_heatmap: list[list[int]],
+    transposition_table: dict
 ) -> int: 
     """
     Determine the next action using min_max algo
     """
-    #Move, eat and cascade
-    #Red always goes first -> Max
+    # Create hash
+    hash_key = compute_hash(board)
 
+    # check whether already visit this board state before 
+    if hash_key in transposition_table:
+        stored_depth, stored_value, score_flag = transposition_table[hash_key]
+        if stored_depth >= depth:
+            if score_flag == ScoreFlag.EXACT:
+                return stored_value
+            if score_flag == ScoreFlag.LOWER_BOUND and stored_value >= beta:
+                return stored_value
+            if score_flag == ScoreFlag.UPPER_BOUND and stored_value <= alpha:
+                return stored_value
+
+    # leaf node / terminal node 
     if board.turn_count == constants.PLACEMENT_TURNS or not board._has_legal_actions() or depth == 0:
-        return evaluate_board(board,my_colour, distance_heatmap)
+        value = evaluate_board(board,my_colour, distance_heatmap)
+        transposition_table[hash_key] = (depth, value, ScoreFlag.EXACT)
+        return value
     
+    # generate move 
     possible_actions = all_legal_actions_during_pacement(board, my_colour, empty_cells)
+
+    alpha_original = alpha
 
     if maximizing:
         best_score = float('-inf')
         
         for each_action in possible_actions:
             board.apply_action(each_action)
-            new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap)
+            new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
             board.undo_action()
             best_score = max(best_score, new_score)
             alpha = max(alpha, best_score)
             if alpha >= beta:
                 break
+
+        if best_score <= alpha_original:
+            score_flag = ScoreFlag.UPPER_BOUND
+        elif best_score >= beta:
+            score_flag = ScoreFlag.LOWER_BOUND
+        else:
+            score_flag = ScoreFlag.EXACT
+
+        transposition_table[hash_key] = (depth, best_score, score_flag)
         return best_score
     
     elif maximizing == False:
@@ -369,13 +400,21 @@ def min_max_algo(
     
         for each_action in possible_actions:
             board.apply_action(each_action)
-            new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap)
+            new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
             board.undo_action()
             best_score = min(best_score, new_score)
             beta = min(beta, best_score)
             if alpha >= beta:
                 break
 
+        if best_score <= alpha_original:
+            score_flag = ScoreFlag.UPPER_BOUND
+        elif best_score >= beta:
+            score_flag = ScoreFlag.LOWER_BOUND
+        else:
+            score_flag = ScoreFlag.EXACT
+
+        transposition_table[hash_key] = (depth, best_score, score_flag)
         return best_score
     return 0
 
