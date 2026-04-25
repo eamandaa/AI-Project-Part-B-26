@@ -5,8 +5,10 @@ from referee.game import PlayerColor, Coord, Direction, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
+from .zobrist_hashing import initialise_zobrist_hashing_table,generate_random_num
 
 from .placement_phase_heuristic import choose_best_action_during_placement
+from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap
 from .alpha_beta import choose_best_action 
 
 
@@ -25,11 +27,40 @@ class Agent:
         self._color = color
         self._turn_count = 0
         self._board = Board()
+        self._cells = self._find_cells(self._board, color)
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
+        
+        # precompute heatmap based on distance (centre and edges)
+        self._distance_heatmap = compute_distance_heatmap()
+        self._tranposition_table = {}
+
+        self.referee = referee
+
+    def _find_cells(
+        self, 
+        board: Board, 
+        my_colour: PlayerColor
+    ) -> dict[int, list[Coord] | None]:
+
+        cells = {
+            "my_cell": [],
+            "enemy_cell": [],
+            "empty_cell": []
+        }
+
+        for coord, cell in board._state.items():
+            if cell.is_empty:
+                cells['empty_cell'].append(coord)
+            elif cell.color == my_colour:
+                cells['my_cell'].append(coord)
+            else:
+                cells['enemy_cell'].append(coord)
+
+        return cells
 
 
     def action(self, **referee: dict) -> Action:
@@ -49,9 +80,33 @@ class Agent:
 
             match self._color:
                 case PlayerColor.RED:
-                    return choose_best_action_during_placement(self._board, 2, self._color)
+                    action = choose_best_action_during_placement_with_move_order(
+                        self._board, 
+                        3, 
+                        self._color,
+                        self._cells['empty_cell'],
+                        self._distance_heatmap,
+                        self._tranposition_table
+                    )
+                    if referee["time_remaining"] is not None:
+                        print(f"time remaining for RED = {referee["time_remaining"]}")
+                    if referee['space_remaining'] is not None:
+                        print(f"space remaining for RED = {referee["space_remaining"]}")
+                    return action
                 case PlayerColor.BLUE:
-                    return choose_best_action_during_placement(self._board, 2,self._color)
+                    action = choose_best_action_during_placement_with_move_order(
+                        self._board, 
+                        3, 
+                        self._color,
+                        self._cells['empty_cell'],
+                        self._distance_heatmap,
+                        self._tranposition_table
+                    )
+                    if referee["time_remaining"] is not None:
+                        print(f"time remaining for BLUE = {referee["time_remaining"]}")
+                    if referee['space_remaining'] is not None:
+                        print(f"space remaining for BLUE = {referee["space_remaining"]}")
+                    return action
 
 
         # During play phase - return an action
@@ -96,4 +151,8 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
+        
         self._board.apply_action(action)
+        self._cells = self._find_cells(self._board, self._color)
+
+   
