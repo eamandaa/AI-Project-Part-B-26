@@ -31,7 +31,7 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3
+    time_limit = 3.8 
 
     # while time.time() - start < time_limit:
     #     node, path = select(root, board)
@@ -143,17 +143,17 @@ def backpropogation(node,score,board,path):
         node = node.parent
 
     return 0
-
+"""
 def heuristic_func(board,agent_color) -> int:
-    
-    # 7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
-    # 4. Being in the edge  
-    # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
-
     if agent_color == PlayerColor.RED:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
+    
+    # 7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
+    # 4. Being in the edge  
+    # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
+    
 
     #1. height
     agent_total = 0
@@ -170,16 +170,16 @@ def heuristic_func(board,agent_color) -> int:
 
     agent_cascade_push = 0
     opp_cascade_push = 0
+    agent_positions = {} 
+    opp_positions = {}    
 
-    #Flags for priority
-    eat_immidiately = False
-    cascade_immidiately = False
-
-    opp_positions = set()
     for coord, cell in board._state.items():
-        if not cell.is_empty and cell.color == opp_color:
-            opp_positions.add((coord.r, coord.c))
-
+        if cell.is_empty:
+            continue
+        if cell.color == opp_color:
+            opp_positions[(coord.r, coord.c)] = cell.height
+        elif cell.color == agent_color:
+            agent_positions[(coord.r, coord.c)] = cell.height
 
     for coord, cell in board._state.items():
         if cell.is_empty:
@@ -210,71 +210,68 @@ def heuristic_func(board,agent_color) -> int:
                 neighbor = coord + direction
             except ValueError:
                 continue
+
             if neighbor in board._state:
                 neighbor_cell = board._state[neighbor]
             if neighbor_cell.is_empty:
                 continue
 
             if is_agent and neighbor_cell.color == opp_color:
-                agent_eat_threats += cell.height
-                if cell.height >= neighbor_cell.height:
-                    eat_immidiately = True
-                elif not is_agent and neighbor_cell.color == agent_color:
-                 opp_eat_threats += cell.height
+                agent_eat_threats += neighbor_cell.height
+                #if cell.height >= neighbor_cell.height:
+                #    eat_immidiately = True
+            elif not is_agent and neighbor_cell.color == agent_color:
+                opp_eat_threats += cell.height
 
                 #Priority 2
 
-                if is_agent and cell.height >= 2:
-                    reach = cell.height
+            if is_agent and cell.height >= 2:
+                reach = cell.height
 
-                    for cas_dir in CARDINAL_DIRECTIONS:
-                        new_row = coord.r + cas_dir.r * reach
-                        new_col = coord.c + cas_dir.c * reach
+                for d in CARDINAL_DIRECTIONS:
+                    dr, dc = d.r, d.c
 
-                        is_safe = 0 <= new_row <= 7 and 0 <= new_col <= 7
-                        if not is_safe:
-                            continue
+                    # scan along direction
+                    enemy_step = None
 
-                        opp_in_path = None
-                        for step in range(1, reach + 1):
-                            check_r = coord.r + direction.r * step
-                            check_c = coord.c + direction.c * step
-                            if (check_r, check_c) in opp_positions:
-                                opp_in_path = step
-                                break
+                    for step in range(1, reach + 1):
+                        r = coord.r + dr * step
+                        c = coord.c + dc * step
 
-                        if opp_in_path is None:
-                            continue
+                        if (r, c) in opp_positions:
+                            enemy_step = step
+                            break
 
-                        enemy_r = coord.r + cas_dir.r * opp_in_path
-                        enemy_c = coord.c + cas_dir.c * opp_in_path
-                        push_steps = reach - opp_in_path
-                        push_r = enemy_r + cas_dir.r * push_steps
-                        push_c = enemy_c + cas_dir.c * push_steps
+                    if enemy_step is None:
+                        continue
 
-                        kicked_off = not (0 <= push_r <= 7 and 0 <= push_c <= 7)
+                    enemy_r = coord.r + dr * enemy_step
+                    enemy_c = coord.c + dc * enemy_step
 
-                        if kicked_off:
-                            agent_cascade_push += cell.height * 10
-                            cascade_immidiately  = True
-                        elif new_row in (0, 7) or new_col in (0, 7):
-                            agent_cascade_push += cell.height * 2
-                            cascade_immidiately  = False
+                    push_steps = reach - enemy_step
+                    push_r = enemy_r + dr * push_steps
+                    push_c = enemy_c + dc * push_steps
+
+                    pushed_off_board = not (0 <= push_r <= 7 and 0 <= push_c <= 7)
+
+                    if is_agent:
+                        if pushed_off_board:
+                            agent_cascade_push += cell.height * 8
                         else:
-                            agent_cascade_push += cell.height
-                            cascade_immidiately  = False
+                            agent_cascade_push += cell.height * 2
+                    else:
+                        if pushed_off_board:
+                            opp_cascade_push += cell.height * 8
+                        else:
+                            opp_cascade_push += cell.height
 
-    if eat_immidiately:
-        return 90000
 
-    if cascade_immidiately  == True:
-        return 80000 * cascade_immidiately 
 
     # Normal score
     return (
         10 * (agent_total - opp_total)
-        + 4  * (agent_eat_threats - opp_eat_threats)
-        + 6  * agent_cascade_push
+        + 8  * (agent_eat_threats - opp_eat_threats)
+        + 6  * (agent_cascade_push - opp_cascade_push)
         + 2  * (agent_center - opp_center)
         - 1  * (agent_edge - opp_edge)
     )
@@ -406,8 +403,206 @@ def heuristic_func(board,agent_color) -> int:
         + 2 * center_score
         - 1 * edge_score
     )
-
+####THis one
     return score
+"""
+
+def heuristic_func(board,agent_color) -> int:
+    if agent_color == PlayerColor.RED:
+        opp_color = PlayerColor.BLUE
+    else:
+        opp_color = PlayerColor.RED
+    
+    # 7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
+    # 4. Being in the edge  
+    # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
+    
+    eat_immediately = False
+    #1. height
+    agent_total = 0
+    opp_total = 0
+    # 3. Center Control
+    agent_center = 0
+    opp_center = 0
+    # 4. being in edge
+    agent_edge = 0
+    opp_edge = 0
+
+    agent_eat_threats = 0
+    opp_eat_threats= 0
+
+    agent_cascade_push = 0
+    opp_cascade_push = 0
+    agent_block = 0
+    agent_capture_bonus = 0
+    agent_positions = {} 
+    opp_positions = {}    
+
+    for coord, cell in board._state.items():
+        if cell.is_empty:
+            continue
+        if cell.color == opp_color:
+            opp_positions[(coord.r, coord.c)] = cell.height
+        elif cell.color == agent_color:
+            agent_positions[(coord.r, coord.c)] = cell.height
+
+    for coord, cell in board._state.items():
+        if cell.is_empty:
+            continue
+
+        is_agent = (cell.color == agent_color)
+        
+        if is_agent:
+            agent_total += cell.height
+        else:
+            opp_total += cell.height 
+
+        if 3 <= coord.r <= 5 and 3 <= coord.c <= 5:
+            if is_agent:
+                agent_center += 1
+            else:
+                opp_center += 1
+
+        if coord.r == 0 or coord.r == 7 or coord.c == 0 or coord.c == 7:
+            if is_agent:
+                agent_edge += 1
+            else:
+                opp_edge += 1
+        
+
+        #2. potential to eat
+        for direction in CARDINAL_DIRECTIONS:
+            try:
+                neighbor = coord + direction
+            except ValueError:
+                continue
+
+            if neighbor not in board._state:
+                continue
+            neighbor_cell = board._state[neighbor]
+
+            if is_agent and neighbor_cell.color == opp_color:
+                if cell.height >= neighbor_cell.height:
+                    agent_capture_bonus += neighbor_cell.height * 200 
+                    eat_immediately = True
+
+            if not neighbor_cell.is_empty and neighbor_cell.color == agent_color:
+                agent_block += 2
+
+            if is_agent and neighbor_cell.color == opp_color:
+                agent_eat_threats += neighbor_cell.height  * 60 
+                #if cell.height >= neighbor_cell.height:
+                #    eat_immidiately = True
+            elif not is_agent and neighbor_cell.color == agent_color:
+                opp_eat_threats += cell.height
+
+                #Priority 2
+
+        if is_agent and cell.height >= 2:
+            reach = cell.height
+
+            for d in CARDINAL_DIRECTIONS:
+                dr, dc = d.r, d.c
+
+                # scan along direction
+                enemy_step = None
+
+                for step in range(1, reach + 1):
+                    r = coord.r + dr * step
+                    c = coord.c + dc * step
+
+                    if (r, c) in opp_positions:
+                        enemy_step = step
+                        break
+
+                if enemy_step is None:
+                    continue
+
+                enemy_r = coord.r + dr * enemy_step
+                enemy_c = coord.c + dc * enemy_step
+
+                push_steps = reach - enemy_step
+                push_r = enemy_r + dr * push_steps
+                push_c = enemy_c + dc * push_steps
+
+                pushed_off_board = not (0 <= push_r <= 7 and 0 <= push_c <= 7)
+
+                if is_agent:
+                    if pushed_off_board:
+                        agent_cascade_push += cell.height * 50
+                    else:
+                        agent_cascade_push += cell.height * 2
+                else:
+                    if pushed_off_board:
+                        opp_cascade_push += cell.height * 50
+                    else:
+                        opp_cascade_push += cell.height* 2
+
+
+    if eat_immediately:
+        return 90000
+
+    # Normal score
+    return (
+        10 * (agent_total - opp_total)
+        #+ 8  * (agent_eat_threats - opp_eat_threats)
+        + 1  * (agent_cascade_push - opp_cascade_push)
+        + 2  * (agent_center - opp_center)
+        - 1  * (agent_edge - opp_edge)
+        #+ 5 * agent_block
+        + 500 * agent_capture_bonus
+    )
+"""
+"""
+def all_legal_actions(self,board) -> list[Action]:
+    action_list = []
+    cascade_actions = []
+    move_actions = []
+    for current_coord, cell in board._state.items():
+        if cell.is_empty:
+            continue
+        if cell.color != board.turn_color:
+            continue
+        for direction in CARDINAL_DIRECTIONS:
+            current_r , current_c = current_coord.r, current_coord.c
+            current_color, current_height = cell.color, cell.height
+       
+            if direction == Direction.Up:    
+                if current_r == 0: 
+                    continue
+                new_coord = Coord(current_r - 1, current_c)
+            elif direction == Direction.Down: 
+                if current_r == 7: 
+                    continue
+                new_coord = Coord(current_r + 1, current_c)
+            elif direction == Direction.Left: 
+                if current_c == 0: 
+                    continue
+                new_coord = Coord(current_r, current_c - 1)
+            else:                            
+                if current_c == 7: continue
+                new_coord = Coord(current_r, current_c + 1)
+            
+            neighbour = board._state.get(new_coord)
+            #EAT
+            if neighbour is not None and not neighbour.is_empty:
+                if neighbour.color != current_color:
+                    if current_height >= neighbour.height:
+                        action_list.append(EatAction(current_coord, direction))
+
+    
+            # MOVE 
+   
+            if neighbour is None or neighbour.is_empty or neighbour.color == current_color:
+                action_list.append(MoveAction(current_coord, direction))
+
+            # CASCADE 
+            if current_height >= 2:
+                action_list.append(CascadeAction(current_coord, direction))
+
+
+    return action_list
+    
 """
 def all_legal_actions(self,board) -> list[Action]:
     eat_actions = []

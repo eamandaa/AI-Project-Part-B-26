@@ -55,7 +55,7 @@ class Agent:
                     return choose_best_action_during_placement(self._board, 2, self._color)
                 case PlayerColor.BLUE:
                     return choose_best_action_during_placement(self._board, 2,self._color)
-
+ 
         # During play phase
         match self._color:
             case PlayerColor.RED:

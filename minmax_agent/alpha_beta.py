@@ -10,14 +10,14 @@ def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     possible_actions = all_legal_actions(self,board)
     for each_action in possible_actions:
         board.apply_action(each_action)
-        maximizing = False
-        curr_score = min_max_algo(self, maximizing, board, depth-1, alpha= -math.inf, beta = math.inf) 
+        #maximizing = False
+        curr_score = min_max_algo(self, False, board, depth, alpha= -math.inf, beta = math.inf) 
         board.undo_action()
 
         if curr_score > best_score:
             best_score = curr_score
             best_action = each_action
-             
+              
     return best_action
 
 def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each depth of min max
@@ -30,6 +30,7 @@ def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each dept
         return heuristic_func(self,board,self._color)
     
     possible_actions = all_legal_actions(self,board)
+    
     if maximizing == True:
         best_score = -math.inf
         
@@ -55,9 +56,18 @@ def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each dept
             if alpha >= beta:
                 break
 
+        #print(f"DEBUG: depth {depth}, best score={best_score}")
         return best_score
 
     return 0
+
+# def is_capture_move(board, move, agent_color):
+#     new_board = simulate(board, move)
+
+#     before = count_pieces(board, opponent_color)
+#     after = count_pieces(new_board, opponent_color)
+
+#     return after < before
 
 def heuristic_func(self,board,agent_color) -> int:
     if agent_color == PlayerColor.RED:
@@ -69,11 +79,7 @@ def heuristic_func(self,board,agent_color) -> int:
     # 4. Being in the edge  
     # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
     
-    if agent_color == PlayerColor.RED:
-        opp_color = PlayerColor.BLUE
-    else:
-        opp_color = PlayerColor.RED
-
+    eat_immediately = False
     #1. height
     agent_total = 0
     opp_total = 0
@@ -88,11 +94,9 @@ def heuristic_func(self,board,agent_color) -> int:
     opp_eat_threats= 0
 
     agent_cascade_push = 0
-
-    #Flags for priority
-    eat_immidiately = False
-    cascade_immidiately = False
-
+    opp_cascade_push = 0
+    agent_block = 0
+    agent_capture_bonus = 0
     agent_positions = {} 
     opp_positions = {}    
 
@@ -104,18 +108,27 @@ def heuristic_func(self,board,agent_color) -> int:
         elif cell.color == agent_color:
             agent_positions[(coord.r, coord.c)] = cell.height
 
-    agent_stack_count = len(agent_positions)
-    opp_stack_count = len(opp_positions)
 
-    # ── ENDGAME MODE ──────────────────────────────────────
-    if opp_stack_count == 1:
+    if len(opp_positions) == 1:
         opp_r, opp_c = next(iter(opp_positions))
         opp_h = opp_positions[(opp_r, opp_c)]
 
+        # EARLY RETURN — check if any agent token can eat right now
+        for (r, c), h in agent_positions.items():
+            dist = abs(r - opp_r) + abs(c - opp_c)
+            if dist == 1 and h >= opp_h:
+                return 99000  # eat immediately, skip everything else
+
+        # Only compute the rest if no immediate eat available
         total_dist = 0
         min_dist = math.inf
         closest_h = 0
         sides_covered = set()
+
+        if opp_r == 0: sides_covered.add('up')
+        if opp_r == 7: sides_covered.add('down')
+        if opp_c == 0: sides_covered.add('left')
+        if opp_c == 7: sides_covered.add('right')
 
         for (r, c), h in agent_positions.items():
             dist = abs(r - opp_r) + abs(c - opp_c)
@@ -133,17 +146,24 @@ def heuristic_func(self,board,agent_color) -> int:
 
         sides_blocked = len(sides_covered)
 
-        # Adjacent and tall enough can eat immediately
-        if min_dist == 1 and closest_h >= opp_h:
-            return 99000
+        corner_bonus = 0
+        if sides_blocked >= 3: corner_bonus = 10000
+        if sides_blocked == 4: corner_bonus = 50000
+
+        merge_bonus = 0
+        for (r, c), h in agent_positions.items():
+            dist = abs(r - opp_r) + abs(c - opp_c)
+            if dist <= 3 and h >= 2:
+                merge_bonus += h * 500
 
         return (
             50000
-            - total_dist * 500
-            - min_dist * 1000
-            + sides_blocked * 3000
+            - total_dist * 200
+            - min_dist * 2000
+            + sides_blocked * 5000
+            + corner_bonus
+            + merge_bonus
         )
-
 
     for coord, cell in board._state.items():
         if cell.is_empty:
@@ -167,6 +187,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 agent_edge += 1
             else:
                 opp_edge += 1
+        
 
         #2. potential to eat
         for direction in CARDINAL_DIRECTIONS:
@@ -174,74 +195,81 @@ def heuristic_func(self,board,agent_color) -> int:
                 neighbor = coord + direction
             except ValueError:
                 continue
-            if neighbor in board._state:
-                neighbor_cell = board._state[neighbor]
-            if neighbor_cell.is_empty:
+
+            if neighbor not in board._state:
                 continue
+            neighbor_cell = board._state[neighbor]
 
             if is_agent and neighbor_cell.color == opp_color:
-                agent_eat_threats += cell.height
                 if cell.height >= neighbor_cell.height:
-                    eat_immidiately = True
-                elif not is_agent and neighbor_cell.color == agent_color:
-                 opp_eat_threats += cell.height
+                    agent_capture_bonus += neighbor_cell.height * 200 
+                    eat_immediately = True
+
+            if not neighbor_cell.is_empty and neighbor_cell.color == agent_color:
+                agent_block += 2
+
+            if is_agent and neighbor_cell.color == opp_color:
+                agent_eat_threats += neighbor_cell.height  * 60 
+                #if cell.height >= neighbor_cell.height:
+                #    eat_immidiately = True
+            elif not is_agent and neighbor_cell.color == agent_color:
+                opp_eat_threats += cell.height
 
                 #Priority 2
 
-                if is_agent and cell.height >= 2:
-                    reach = cell.height
+        if is_agent and cell.height >= 2:
+            reach = cell.height
 
-                    for cas_dir in CARDINAL_DIRECTIONS:
-                        new_row = coord.r + cas_dir.r * reach
-                        new_col = coord.c + cas_dir.c * reach
+            for d in CARDINAL_DIRECTIONS:
+                dr, dc = d.r, d.c
 
-                        is_safe = 0 <= new_row <= 7 and 0 <= new_col <= 7
-                        if not is_safe:
-                            continue
+                # scan along direction
+                enemy_step = None
 
-                        opp_in_path = None
-                        for step in range(1, reach + 1):
-                            check_r = coord.r + direction.r * step
-                            check_c = coord.c + direction.c * step
-                            if (check_r, check_c) in opp_positions:
-                                opp_in_path = step
-                                break
+                for step in range(1, reach + 1):
+                    r = coord.r + dr * step
+                    c = coord.c + dc * step
 
-                        if opp_in_path is None:
-                            continue
+                    if (r, c) in opp_positions:
+                        enemy_step = step
+                        break
 
-                        enemy_r = coord.r + cas_dir.r * opp_in_path
-                        enemy_c = coord.c + cas_dir.c * opp_in_path
-                        push_steps = reach - opp_in_path
-                        push_r = enemy_r + cas_dir.r * push_steps
-                        push_c = enemy_c + cas_dir.c * push_steps
+                if enemy_step is None:
+                    continue
 
-                        kicked_off = not (0 <= push_r <= 7 and 0 <= push_c <= 7)
+                enemy_r = coord.r + dr * enemy_step
+                enemy_c = coord.c + dc * enemy_step
 
-                        if kicked_off:
-                            agent_cascade_push += cell.height * 10
-                            cascade_immidiately  = True
-                        elif new_row in (0, 7) or new_col in (0, 7):
-                            agent_cascade_push += cell.height * 2
-                            cascade_immidiately  = False
-                        else:
-                            agent_cascade_push += cell.height
-                            cascade_immidiately  = False
+                push_steps = reach - enemy_step
+                push_r = enemy_r + dr * push_steps
+                push_c = enemy_c + dc * push_steps
+
+                pushed_off_board = not (0 <= push_r <= 7 and 0 <= push_c <= 7)
+
+                if is_agent:
+                    if pushed_off_board:
+                        agent_cascade_push += cell.height * 50
+                    else:
+                        agent_cascade_push += cell.height * 2
+                else:
+                    if pushed_off_board:
+                        opp_cascade_push += cell.height * 50
+                    else:
+                        opp_cascade_push += cell.height* 2
 
 
-    if eat_immidiately:
+    if eat_immediately:
         return 90000
-
-    if cascade_immidiately  == True:
-        return 80000 * cascade_immidiately 
 
     # Normal score
     return (
         10 * (agent_total - opp_total)
-        + 4  * (agent_eat_threats - opp_eat_threats)
-        + 6  * agent_cascade_push
+        #+ 8  * (agent_eat_threats - opp_eat_threats)
+        + 1  * (agent_cascade_push - opp_cascade_push)
         + 2  * (agent_center - opp_center)
         - 1  * (agent_edge - opp_edge)
+        #+ 5 * agent_block
+        + 500 * agent_capture_bonus
     )
 
 
@@ -368,7 +396,6 @@ def heuristic_func(self,board,agent_color) -> int:
     )
     
     return score
-
 """
 def all_legal_actions(self,board) -> list[Action]:
     eat_actions = []
@@ -406,3 +433,56 @@ def all_legal_actions(self,board) -> list[Action]:
             except IllegalActionException:
                 pass
     return eat_actions + cascade_actions + move_actions
+
+"""
+def all_legal_actions(self,board) -> list[Action]:
+    action_list = []
+    cascade_actions = []
+    move_actions = []
+    for current_coord, cell in board._state.items():
+        if cell.is_empty:
+            continue
+        if cell.color != board.turn_color:
+            continue
+        for direction in CARDINAL_DIRECTIONS:
+            current_r , current_c = current_coord.r, current_coord.c
+            current_color, current_height = cell.color, cell.height
+       
+            if direction == Direction.Up:    
+                if current_r == 0: 
+                    continue
+                new_coord = Coord(current_r - 1, current_c)
+            elif direction == Direction.Down: 
+                if current_r == 7: 
+                    continue
+                new_coord = Coord(current_r + 1, current_c)
+            elif direction == Direction.Left: 
+                if current_c == 0: 
+                    continue
+                new_coord = Coord(current_r, current_c - 1)
+            else:                            
+                if current_c == 7: continue
+                new_coord = Coord(current_r, current_c + 1)
+            
+            
+
+            neighbour = board._state.get(new_coord)
+            #EAT
+            if neighbour is not None and not neighbour.is_empty:
+                if neighbour.color != current_color:
+                    if current_height >= neighbour.height:
+                        action_list.append(EatAction(current_coord, direction))
+
+    
+            # MOVE 
+   
+            if neighbour is None or neighbour.is_empty or neighbour.color == current_color:
+                action_list.append(MoveAction(current_coord, direction))
+
+            # CASCADE 
+            if current_height >= 2:
+                action_list.append(CascadeAction(current_coord, direction))
+
+
+    return action_list
+"""
