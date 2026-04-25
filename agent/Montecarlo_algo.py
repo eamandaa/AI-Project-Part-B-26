@@ -33,22 +33,6 @@ def mcts(agent,board) -> Action :
     start = time.time()
     time_limit = 3
 
-    # while time.time() - start < time_limit:
-    #     node, path = select(root, board)
-    #     print(f"after select: path={len(path)}, children={len(node.children)}, untried={node.untried_actions}")
-
-    #     if not node.is_ended(board):
-    #         node = expand(node, agent, board, path)
-    #         print(f"after expand: path={len(path)}, root children={len(root.children)}")
-
-    #     score = simulate(agent, board)
-    #     print(f"after simulate: score={score}")
-
-    #     backpropogation(node, score, board, path)
-    #     print(f"after backprop: root visits={root.visits}")
-        
-    #     break 
-
     while time.time() - start < time_limit:
         # 1. Do selection
         node, path = select(root,board)
