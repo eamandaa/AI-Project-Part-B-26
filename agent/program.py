@@ -8,7 +8,7 @@ from referee.game import Board
 from .zobrist_hashing import initialise_zobrist_hashing_table,generate_random_num
 
 from .placement_phase_heuristic import choose_best_action_during_placement
-from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap
+from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap, iterative_deepening
 from .alpha_beta import choose_best_action 
 
 
@@ -80,9 +80,16 @@ class Agent:
 
             match self._color:
                 case PlayerColor.RED:
-                    action = choose_best_action_during_placement_with_move_order(
+                    # action = choose_best_action_during_placement_with_move_order(
+                    #     self._board, 
+                    #     3, 
+                    #     self._color,
+                    #     self._cells['empty_cell'],
+                    #     self._distance_heatmap,
+                    #     self._tranposition_table
+                    # )
+                    action =iterative_deepening(
                         self._board, 
-                        3, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
@@ -94,9 +101,8 @@ class Agent:
                         print(f"space remaining for RED = {referee["space_remaining"]}")
                     return action
                 case PlayerColor.BLUE:
-                    action = choose_best_action_during_placement_with_move_order(
+                    action =iterative_deepening(
                         self._board, 
-                        3, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
