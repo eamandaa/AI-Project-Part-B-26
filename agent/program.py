@@ -1,14 +1,11 @@
 # COMP30024 Artificial Intelligence, Semester 1 2026
 # Project Part B: Game Playing Agent
 
-from referee.game import PlayerColor, Coord, Direction, \
+from referee.game import PlayerColor, Coord, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .zobrist_hashing import initialise_zobrist_hashing_table,generate_random_num
-
-from .placement_phase_heuristic import choose_best_action_during_placement
-from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap, iterative_deepening
+from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening
 from .alpha_beta import choose_best_action 
 
 
