@@ -32,7 +32,7 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3.5 #3
+    time_limit = 3.7 #3
 
     while time.time() - start < time_limit:
         # 1. Do selection
@@ -62,7 +62,7 @@ def mcts(agent,board) -> Action :
         if child.visits == 0:
             continue  # skip unvisited children
         
-        win_rate = child.wins / child.visits
+        win_rate = (child.wins/100) / child.visits
         
         if win_rate > best_win_rate:
             best_win_rate = win_rate
