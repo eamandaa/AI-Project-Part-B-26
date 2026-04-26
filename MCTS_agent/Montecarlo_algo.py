@@ -31,7 +31,7 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3.6 #3
+    time_limit = 3.7 #3
 
     while time.time() - start < time_limit:
         # 1. Do selection
