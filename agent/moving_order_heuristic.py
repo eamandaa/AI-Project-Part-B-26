@@ -325,13 +325,18 @@ def all_legal_actions_during_pacement(
     place_actions = {}
 
     for coord in empty_cells:
+        place = PlaceAction(coord)
+        applied = False
         try:
-            place = PlaceAction(coord)
-            board._resolve_place_action(place)
-            place_score = score_moving_order(board,coord,agent_colour)
+            board.apply_action(place)
+            applied = True
+            place_score = score_moving_order(board, coord, agent_colour)
             place_actions[place] = place_score
         except IllegalActionException:
             pass
+        finally:
+            if applied:
+                board.undo_action()  
 
     sorted_placement_score = sorted(place_actions.items(),key = lambda x : x[1], reverse = True)
 
@@ -487,7 +492,6 @@ def iterative_deepening(
         if action is not None:
             best_action = action
         
-        
         if time.time() - start > time_limit:
             print(f"Timed out at depth {depth}, using depth {depth-1} result")
             break
@@ -531,17 +535,24 @@ def minimax_root(
         for action in possible_actions:
             board.apply_action(action)
             # maximizing = (board.turn_color == agent_colour)
-            curr_score = min_max_algo(
-                False, 
-                board, 
-                depth-1, 
-                alpha, 
-                beta, 
-                my_colour=agent_colour,
-                empty_cells=empty_cells,
-                distance_heatmap=distance_heatmap,
-                transposition_table = transposition_table
-            ) 
+            try:
+                curr_score = min_max_algo_with_time(
+                    False, 
+                    board, 
+                    depth-1, 
+                    alpha, 
+                    beta, 
+                    my_colour=agent_colour,
+                    empty_cells=empty_cells,
+                    distance_heatmap=distance_heatmap,
+                    transposition_table = transposition_table,
+                    start_time=start_time,
+                    time_limit=time_limit
+                ) 
+            except TimeoutError:
+                board.undo_action()
+                raise
+            
             board.undo_action()
 
             if curr_score > best_score:
@@ -571,7 +582,7 @@ def min_max_algo_with_time(
     Determine the next action using min_max algo
     """
 
-    if time.time() - start_time > time_limit:
+    if (time.time() - start_time) > time_limit:
         raise TimeoutError()
     
     # Create hash
@@ -612,7 +623,11 @@ def min_max_algo_with_time(
         
         for each_action in possible_actions:
             board.apply_action(each_action)
-            new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
+            try:
+                new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
+            except TimeoutError:
+                board.undo_action()
+                raise
             board.undo_action()
             if new_score > best_score:
                 best_score = new_score
@@ -626,7 +641,12 @@ def min_max_algo_with_time(
     
         for each_action in possible_actions:
             board.apply_action(each_action)
-            new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
+            try:
+                new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
+            except TimeoutError:
+                board.undo_action()
+                raise
+
             board.undo_action()
             if new_score < best_score:
                 best_score = new_score

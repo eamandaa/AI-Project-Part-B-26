@@ -158,7 +158,10 @@ class Agent:
             case _:
                 raise ValueError(f"Unknown action type: {action}")
         
+        self._board._turn_color = color
         self._board.apply_action(action)
         self._cells = self._find_cells(self._board, self._color)
+        print(f"Cells for {self._color} = {self._cells}")
+
 
    
