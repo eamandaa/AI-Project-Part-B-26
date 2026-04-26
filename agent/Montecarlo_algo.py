@@ -36,26 +36,18 @@ def mcts(agent,board) -> Action :
 
 
     while time.time() - start < time_limit:
-        board_copy = copy.deepcopy(board)
-        node, path = select(root, board_copy)
+        # 1. Do selection
+        node, path = select(root,board)
 
-        if not node.is_ended(board_copy):
-            node = expand(node, agent, board_copy, path)
-
-        score = simulate(agent, board_copy)
-        backpropogation(node, score,board,path)
-        # # 1. Do selection
-        # node, path = select(root,board)
-
-        # #2. Expand
-        # if node.is_ended(board) == False:
-        #     node = expand(node,agent,board,path)
+        #2. Expand
+        if node.is_ended(board) == False:
+            node = expand(node,agent,board,path)
         
-        # # 3. Simulate
-        # score = simulate(agent,board)
+        # 3. Simulate
+        score = simulate(agent,board)
 
-        # #4. backpropagation
-        # backpropogation(node,score,board,path)
+        #4. backpropagation
+        backpropogation(node,score,board,path)
 
     actions = all_legal_actions(agent,board)
     
@@ -71,7 +63,7 @@ def mcts(agent,board) -> Action :
         if child.visits == 0:
             continue  # skip unvisited children
         
-        win_rate = child.wins / child.visits
+        win_rate = (child.wins/100000) / child.visits
         print("win rate:", win_rate, "win:",child.wins)
         if win_rate > best_win_rate:
             best_win_rate = win_rate
@@ -83,13 +75,13 @@ def mcts(agent,board) -> Action :
         return actions[0] if actions else None
     
     # 1. Is the best action being picked correctly?
-    best = max(root.children, key=lambda c: c.wins/c.visits if c.visits > 0 else -math.inf)
-    print(f"Best action win_rate: {best.wins/best.visits:.3f}, visits: {best.visits}")
+    # best = max(root.children, key=lambda c: c.wins/c.visits if c.visits > 0 else -math.inf)
+    # print(f"Best action win_rate: {best.wins/best.visits:.3f}, visits: {best.visits}")
 
-    # 2. Are high win rate nodes also high visit nodes?
-    for child in sorted(root.children, key=lambda c: c.visits, reverse=True)[:5]:
-        if child.visits > 0:
-            print(f"visits: {child.visits}, win_rate: {child.wins/child.visits:.3f}")
+    # # 2. Are high win rate nodes also high visit nodes?
+    # for child in sorted(root.children, key=lambda c: c.visits, reverse=True)[:5]:
+    #     if child.visits > 0:
+    #         print(f"visits: {child.visits}, win_rate: {child.wins/child.visits:.3f}")
 
     return best.action
     
@@ -168,14 +160,14 @@ def simulate(agent,board):
 
             action = best_action
 
-        board.apply_action(action)
+        #board.apply_action(action)
         current_color = board._turn_color
 
     return heuristic_func(board, agent._color)
 
 def backpropogation(node,score,board,path):
-    # for _ in range(len(path)):
-    #     board.undo_action()
+    for _ in range(len(path)):
+        board.undo_action()
     while node is not None:
         node.visits += 1
         node.wins += score
@@ -446,7 +438,7 @@ def heuristic_func(board,agent_color) -> int:
 
 
     if eat_immediately:
-        return 90000
+        return 100
 
     # #make a roken chase another one and not wonder aimlessly
     # focus_bonus = 0
