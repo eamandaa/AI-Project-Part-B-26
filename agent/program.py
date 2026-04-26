@@ -1,14 +1,11 @@
 # COMP30024 Artificial Intelligence, Semester 1 2026
 # Project Part B: Game Playing Agent
 
-from referee.game import PlayerColor, Coord, Direction, \
+from referee.game import PlayerColor, Coord, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .zobrist_hashing import initialise_zobrist_hashing_table,generate_random_num
-
-from .placement_phase_heuristic import choose_best_action_during_placement
-from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap
+from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening
 from .alpha_beta import choose_best_action 
 
 
@@ -76,17 +73,20 @@ class Agent:
         #print(cell.)
 
         # During placement phase (first 8 turns total, 4 per player)
-        if self._turn_count < 4:
-
+        if self._turn_count < 4: 
+            placements_remaining = 4 - self._turn_count
+            print(f"remaining placement count = {placements_remaining}, colour = {self._color}")
             match self._color:
                 case PlayerColor.RED:
-                    action = choose_best_action_during_placement_with_move_order(
+                    effective_max_depth = placements_remaining * 2 
+                    print(f"effective max depth = {effective_max_depth} for {self._color}")
+                    action =iterative_deepening(
                         self._board, 
-                        3, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
-                        self._tranposition_table
+                        self._tranposition_table,
+                        max_depth=effective_max_depth
                     )
                     if referee["time_remaining"] is not None:
                         print(f"time remaining for RED = {referee["time_remaining"]}")
@@ -94,13 +94,15 @@ class Agent:
                         print(f"space remaining for RED = {referee["space_remaining"]}")
                     return action
                 case PlayerColor.BLUE:
-                    action = choose_best_action_during_placement_with_move_order(
+                    effective_max_depth = placements_remaining * 2 - 1
+                    print(f"effective max depth = {effective_max_depth} for {self._color}")
+                    action =iterative_deepening(
                         self._board, 
-                        3, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
-                        self._tranposition_table
+                        self._tranposition_table,
+                        max_depth=effective_max_depth
                     )
                     if referee["time_remaining"] is not None:
                         print(f"time remaining for BLUE = {referee["time_remaining"]}")
@@ -151,8 +153,10 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
-        
+
         self._board.apply_action(action)
         self._cells = self._find_cells(self._board, self._color)
+        print(f"Cells for {self._color} = {self._cells}")
+
 
    
