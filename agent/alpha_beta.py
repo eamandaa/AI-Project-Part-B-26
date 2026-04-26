@@ -1,5 +1,5 @@
 from referee.game import PlayerColor, Coord, Direction, \
-    Action, PlaceAction, MoveAction, EatAction, CascadeAction, CARDINAL_DIRECTIONS, IllegalActionException, GamePhase   
+    Action, PlaceAction, MoveAction, EatAction, CascadeAction, CARDINAL_DIRECTIONS, IllegalActionException, GamePhase, CellState
 
 from referee.game import Board
 import math
@@ -122,8 +122,6 @@ def heuristic_func(self,board,agent_color) -> int:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
-    
-    
     
     # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
@@ -277,24 +275,26 @@ def heuristic_func(self,board,agent_color) -> int:
 
         is_agent = (cell.color == agent_color)
         
+        # reward based on height
         if is_agent:
             agent_total += cell.height
         else:
             opp_total += cell.height 
 
+        # reward based on being centre
         if 3 <= coord.r <= 5 and 3 <= coord.c <= 5:
             if is_agent:
                 agent_center += 1
             else:
                 opp_center += 1
 
+        # penalise on being edge
         if coord.r == 0 or coord.r == 7 or coord.c == 0 or coord.c == 7:
             if is_agent:
                 agent_edge += 1
             else:
                 opp_edge += 1
         
-
         #2. potential to eat
         for direction in CARDINAL_DIRECTIONS:
             try:
@@ -377,7 +377,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     else:
                         opp_cascade_push += cell.height* 2
 
-
+    # sounds risky
     if eat_immediately:
         return 90000
 
@@ -411,13 +411,61 @@ def heuristic_func(self,board,agent_color) -> int:
         + 2  * (agent_center - opp_center)
         - 1  * (agent_edge - opp_edge)
         #+ 5 * agent_block
-        + 500 * agent_capture_bonus
+        + 1 * agent_capture_bonus
         - wasted_cascade_penalty
         # + focus_bonus      # ← reward chasing nearest enemy
         # - wander_penalty
     )
 
+def manhanttan_distance(
+    coord_one: Coord,
+    coord_two: Coord
+) -> int:
+    """Calculate the distance of the coordinates using Manhattan distance"""
+    return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
+def _potential_to_be_eaten(
+    opponents_stacks:dict[tuple[int, int], int],
+    curr_coord: Coord,
+    curr_cell_state: CellState,
+    board: Board
+) -> int:
+    """
+    Evaluate how likely the agent could eat the opponents, and 
+    how likely we are being eaten by opponents
+    """
+
+    eat_score = 0
+    curr_cell_height = curr_cell_state.height
+
+    for (opponent_r, opponent_c), opponent_height in opponents_stacks.items():
+        distance = manhanttan_distance(curr_coord, Coord(opponent_r, opponent_c))
+
+        # unlikely to happen, but just for safe guard
+        if distance == 0:
+            continue
+        
+        # skip stacks that are too far away
+        if distance > 4:
+            continue
+
+        current_eat_score = 0
+
+        if curr_cell_height >= opponent_height:
+            current_eat_score += opponent_height
+        else:
+            current_eat_score -= curr_cell_height
+
+        # more important 
+        if distance <= 2:
+            weight = 2
+        # could be a threat/potential eat
+        elif distance <= 4:
+            weight = 1
+
+        eat_score += current_eat_score * weight
+
+    return eat_score
 
     """
 
