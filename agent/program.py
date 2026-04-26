@@ -5,7 +5,7 @@ from referee.game import PlayerColor, Coord, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .alpha_beta import choose_best_action 
+from .alpha_beta import choose_best_action, iterative_deepening_play
 from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening
 
 
@@ -111,18 +111,30 @@ class Agent:
                         print(f"space remaining for BLUE = {referee["space_remaining"]}")
                     return action
 
+        # refresh the transposition table 
+        if self._turn_count == 5:
+            self._tranposition_table = {}
+
 
         # During play phase - return an action
         #Base using min max alpha beta pruning 
         
         match self._color:
             case PlayerColor.RED:
-                print("phase", self._board.phase)
+                action = iterative_deepening_play(self,self._board,time_limit=10)
                 #print("Testing: RED is playing a MOVE action")
-                return choose_best_action(self,self._board,depth = 2)
+                if referee["time_remaining"] is not None:
+                        print(f"time remaining for BLUE = {referee["time_remaining"]}")
+                if referee['space_remaining'] is not None:
+                    print(f"space remaining for BLUE = {referee["space_remaining"]}")
+                return action
             case PlayerColor.BLUE:
-                #print("Testing: BLUE is playing a MOVE action")
-                return choose_best_action(self,self._board,depth = 2)
+                action = iterative_deepening_play(self,self._board,time_limit=10)
+                if referee["time_remaining"] is not None:
+                        print(f"time remaining for BLUE = {referee["time_remaining"]}")
+                if referee['space_remaining'] is not None:
+                    print(f"space remaining for BLUE = {referee["space_remaining"]}")
+                return action
 
         
     def _find_cells(
@@ -180,7 +192,6 @@ class Agent:
 
         self._board.apply_action(action)
         self._cells = self._find_cells(self._board, self._color)
-        print(f"Cells for {self._color} = {self._cells}")
 
 
    
