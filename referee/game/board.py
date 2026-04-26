@@ -9,6 +9,7 @@ from .player import PlayerColor
 from .actions import Action, PlaceAction, MoveAction, EatAction, CascadeAction
 from .exceptions import IllegalActionException
 from .constants import *
+import copy
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +123,8 @@ class Board:
         if not self._within_bounds(cell):
             raise IndexError(f"Cell position '{cell}' is invalid.")
         return self._state[cell]
+    
+    
 
     @property
     def phase(self) -> GamePhase:
