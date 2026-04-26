@@ -23,7 +23,7 @@ class MCTS_node:
     def is_ended(self,board):
         return board.game_over or not board._has_legal_actions()
 
-    def UCB1(self,exploration = 1.01): #1.41
+    def UCB1(self,exploration = 1.41): #1.41
         if self.visits == 0:
             return math.inf #always do the unvisited one first
         return (self.wins / self.visits) + exploration * math.sqrt(math.log(self.parent.visits) / self.visits)
@@ -32,32 +32,23 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3 #3
-
+    time_limit = 3.5 #3
 
     while time.time() - start < time_limit:
-        board_copy = copy.deepcopy(board)
-        node, path = select(root, board_copy)
+        # 1. Do selection
+        node, path = select(root,board)
 
-        if not node.is_ended(board_copy):
-            node = expand(node, agent, board_copy, path)
-
-        score = simulate(agent, board_copy)
-        backpropogation(node, score,board,path)
-        # # 1. Do selection
-        # node, path = select(root,board)
-
-        # #2. Expand
-        # if node.is_ended(board) == False:
-        #     node = expand(node,agent,board,path)
+        #2. Expand
+        if node.is_ended(board) == False:
+            node = expand(node,agent,board,path)
         
-        # # 3. Simulate
-        # score = simulate(agent,board)
+        # 3. Simulate
+        score = simulate(agent,board)
 
-        # #4. backpropagation
-        # backpropogation(node,score,board,path)
+        #4. backpropagation
+        backpropogation(node,score,board,path)
 
-    actions = all_legal_actions(agent,board)
+    actions = all_legal_actions(agent, board)
     
     # Fallback if root never expanded
     # if not root.children:
@@ -72,7 +63,7 @@ def mcts(agent,board) -> Action :
             continue  # skip unvisited children
         
         win_rate = child.wins / child.visits
-        print("win rate:", win_rate, "win:",child.wins)
+        
         if win_rate > best_win_rate:
             best_win_rate = win_rate
             best = child
@@ -81,15 +72,6 @@ def mcts(agent,board) -> Action :
     if best is None:
         actions = all_legal_actions(agent, board)
         return actions[0] if actions else None
-    
-    # 1. Is the best action being picked correctly?
-    best = max(root.children, key=lambda c: c.wins/c.visits if c.visits > 0 else -math.inf)
-    print(f"Best action win_rate: {best.wins/best.visits:.3f}, visits: {best.visits}")
-
-    # 2. Are high win rate nodes also high visit nodes?
-    for child in sorted(root.children, key=lambda c: c.visits, reverse=True)[:5]:
-        if child.visits > 0:
-            print(f"visits: {child.visits}, win_rate: {child.wins/child.visits:.3f}")
 
     return best.action
     
@@ -123,7 +105,7 @@ def select(node,board):
 
 def expand(node,agent,board,path):
     if node.untried_actions == None:
-        node.untried_actions = all_legal_actions(board._turn_color,board)
+        node.untried_actions = all_legal_actions(agent,board)
 
     if node.untried_actions:
         each_action = node.untried_actions.pop()
@@ -134,48 +116,31 @@ def expand(node,agent,board,path):
         return child
     return node  
 
-def simulate(agent,board):
-    #return heuristic_func(board, agent._color)
-    depth = 5
-    current_color = board._turn_color
-    moves_done = 0
+# def simulate(agent,board):
+#     return heuristic_func(board, agent._color)
 
-    for _ in range(depth):
+def simulate(agent, board):
+    steps = 0  # track actual applied actions
+
+    for _ in range(5): # the depth of mcts
         if board.game_over:
             break
-
-        actions = all_legal_actions(current_color, board)
+        actions = all_legal_actions(board._turn_color, board)
         if not actions:
             break
-
-        # PRIORITY 1: eat if possible
-        eat_actions = [a for a in actions if isinstance(a, EatAction)]
-        if eat_actions:
-            action = random.choice(eat_actions)
-        else:
-            # PRIORITY 2: heuristic-guided
-            best_score = -math.inf
-            best_action = None
-
-            for a in actions:
-                board.apply_action(a)
-                score = heuristic_func(board, agent._color)
-                board.undo_action()
-
-                if score > best_score:
-                    best_score = score
-                    best_action = a
-
-            action = best_action
-
+        action = random.choice(actions)
         board.apply_action(action)
-        current_color = board._turn_color
+        steps += 1  # only increment when actually applied
 
-    return heuristic_func(board, agent._color)
+    score = heuristic_func(board, agent._color)
+
+    for _ in range(steps):  # undo exactly what was applied 
+        board.undo_action()
+    return score
 
 def backpropogation(node,score,board,path):
-    # for _ in range(len(path)):
-    #     board.undo_action()
+    for _ in range(len(path)):
+        board.undo_action()
     while node is not None:
         node.visits += 1
         node.wins += score
@@ -435,18 +400,18 @@ def heuristic_func(board,agent_color) -> int:
 
                 if is_agent:
                     if pushed_off_board:
-                        agent_cascade_push += cell.height * 50
+                        agent_cascade_push += cell.height * 8
                     else:
                         agent_cascade_push += cell.height * 2
                 else:
                     if pushed_off_board:
-                        opp_cascade_push += cell.height * 50
+                        opp_cascade_push += cell.height * 8
                     else:
                         opp_cascade_push += cell.height* 2
 
 
     if eat_immediately:
-        return 90000
+        return 600
 
     # #make a roken chase another one and not wonder aimlessly
     # focus_bonus = 0
@@ -472,7 +437,7 @@ def heuristic_func(board,agent_color) -> int:
 
     # Normal score
     return (
-        10 * (agent_total - opp_total)
+        5 * (agent_total - opp_total)
         #+ 8  * (agent_eat_threats - opp_eat_threats)
         + 1  * (agent_cascade_push - opp_cascade_push)
         + 2  * (agent_center - opp_center)

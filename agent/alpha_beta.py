@@ -325,18 +325,18 @@ def heuristic_func(self,board,agent_color) -> int:
 
                 if is_agent:
                     if pushed_off_board:
-                        agent_cascade_push += cell.height * 50
+                        agent_cascade_push += cell.height * 8
                     else:
-                        agent_cascade_push += cell.height * 2
+                        agent_cascade_push += cell.height * 1
                 else:
                     if pushed_off_board:
-                        opp_cascade_push += cell.height * 50
+                        opp_cascade_push += cell.height * 8
                     else:
-                        opp_cascade_push += cell.height* 2
+                        opp_cascade_push += cell.height* 1
 
 
     if eat_immediately:
-        return 90000
+        return 600
 
     # #make a roken chase another one and not wonder aimlessly
     # focus_bonus = 0
@@ -368,7 +368,7 @@ def heuristic_func(self,board,agent_color) -> int:
         + 2  * (agent_center - opp_center)
         - 1  * (agent_edge - opp_edge)
         #+ 5 * agent_block
-        + 500 * agent_capture_bonus
+        + 1 * agent_capture_bonus
         - wasted_cascade_penalty
         # + focus_bonus      # ← reward chasing nearest enemy
         # - wander_penalty
