@@ -23,8 +23,17 @@ why? build height advantage earlier
 things to be aware: all same colours stack being too clustered
 
 
-Potential idea to improve
-- consider symmetry of the board state
+Improvement that has been made
+- Moving order for sorting the possible placement action
+- Precompute the score for distance to centre and distance to edge
+- Transposition table with Zobrist hashing and Iterative deepening 
+--> avoiding visit the same state with different move
+- Having timeout for iterative deepening so we can search deeper 
+and effective depth updated so lesser computation before timeout
+
+Potential improvement
+1. Check with higher timeout to allow deeper search
+- Current depth ends at 3 at this moment 
 """
 
 import time 
