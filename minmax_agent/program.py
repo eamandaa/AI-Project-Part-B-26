@@ -23,6 +23,7 @@ class Agent:
         self._color = color
         self._turn_count = 0
         self._board = Board()
+        #self._cells = self._find_cells(self._board, color)
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
@@ -62,6 +63,29 @@ class Agent:
             case PlayerColor.BLUE:
                 #print("Testing: BLUE is playing a MOVE action")
                 return choose_best_action(self,self._board,depth = 3)
+
+        
+    def _find_cells(
+        self, 
+        board: Board, 
+        my_colour: PlayerColor
+    ) -> dict[int, list[Coord] | None]:
+
+        cells = {
+            "my_cell": [],
+            "enemy_cell": [],
+            "empty_cell": []
+        }
+
+        for coord, cell in board._state.items():
+            if cell.is_empty:
+                cells['empty_cell'].append(coord)
+            elif cell.color == my_colour:
+                cells['my_cell'].append(coord)
+            else:
+                cells['enemy_cell'].append(coord)
+
+        return cells
        
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
@@ -93,4 +117,7 @@ class Agent:
                 print(f"  Direction: {direction}")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
+
         self._board.apply_action(action)
+        #self._cells = self._find_cells(self._board, self._color)
+        #print("Cells for", self._color,"board:", self._cells  )

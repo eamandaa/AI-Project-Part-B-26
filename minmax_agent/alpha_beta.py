@@ -80,19 +80,20 @@ def heuristic_func(self,board,agent_color) -> int:
     else:
         opp_color = PlayerColor.RED
     
-    # 7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
+    # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
-    # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
+    # priority: 1. If last token  2. Will see if we can eat our adjacent stacj 3. cascade and ppush it away 4. continue with score func 
     if board.game_over:
         winner = board.winner_color
         if winner == agent_color:
             return 100000  
         elif winner == opp_color:
             return -100000
-        else:
+        else: #DOUBLE CHECK FOR LATER - FOR TIE CONDITION
             return -5000
     
     eat_immediately = False
+
     #1. height
     agent_total = 0
     opp_total = 0
@@ -108,8 +109,10 @@ def heuristic_func(self,board,agent_color) -> int:
 
     agent_cascade_push = 0
     opp_cascade_push = 0
-    agent_block = 0
+
+    agent_block = 0 #not in use
     agent_capture_bonus = 0
+
     agent_positions = {} 
     opp_positions = {}    
 
@@ -172,7 +175,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 elif esc_dist == 1:  # threatening it
                     escape_block_bonus += 2000
 
-            # cascade blue to corner
+            # cascade opp to corner
             if h >= 2:
                 reach = h
                 for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
@@ -221,6 +224,8 @@ def heuristic_func(self,board,agent_color) -> int:
             + escape_trapped_bonus    # fewer escapes = better
             + corner_bonus
         )
+
+    #Main algo if there are multiple opponent tokens 
     for coord, cell in board._state.items():
         if cell.is_empty:
             continue
@@ -264,6 +269,7 @@ def heuristic_func(self,board,agent_color) -> int:
             if not neighbor_cell.is_empty and neighbor_cell.color == agent_color:
                 agent_block += 2
 
+            #unsure good or not currently commented out in the score func
             if is_agent and neighbor_cell.color == opp_color:
                 agent_eat_threats += neighbor_cell.height  * 60 
                 #if cell.height >= neighbor_cell.height:
@@ -271,7 +277,7 @@ def heuristic_func(self,board,agent_color) -> int:
             elif not is_agent and neighbor_cell.color == agent_color:
                 opp_eat_threats += cell.height
 
-                #Priority 2
+         #Priority 2 cascade out of the board
 
         if is_agent and cell.height >= 2:
             reach = cell.height
