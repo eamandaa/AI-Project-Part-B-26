@@ -6,7 +6,7 @@ from referee.game import PlayerColor, Coord, \
 
 from referee.game import Board
 from .alpha_beta import choose_best_action, iterative_deepening_play
-from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening
+from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening_place
 
 
 
@@ -81,7 +81,7 @@ class Agent:
                 case PlayerColor.RED:
                     effective_max_depth = placements_remaining * 2 
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
-                    action =iterative_deepening(
+                    action =iterative_deepening_place(
                         self._board, 
                         self._color,
                         self._cells['empty_cell'],
@@ -97,7 +97,7 @@ class Agent:
                 case PlayerColor.BLUE:
                     effective_max_depth = placements_remaining * 2 - 1
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
-                    action =iterative_deepening(
+                    action =iterative_deepening_place(
                         self._board, 
                         self._color,
                         self._cells['empty_cell'],
@@ -121,7 +121,7 @@ class Agent:
         
         match self._color:
             case PlayerColor.RED:
-                action = iterative_deepening_play(self,self._board,time_limit=10)
+                action = iterative_deepening_play(self,self._board,time_limit=5)
                 #print("Testing: RED is playing a MOVE action")
                 if referee["time_remaining"] is not None:
                         print(f"time remaining for BLUE = {referee["time_remaining"]}")
@@ -129,7 +129,7 @@ class Agent:
                     print(f"space remaining for BLUE = {referee["space_remaining"]}")
                 return action
             case PlayerColor.BLUE:
-                action = iterative_deepening_play(self,self._board,time_limit=10)
+                action = iterative_deepening_play(self,self._board,time_limit=5)
                 if referee["time_remaining"] is not None:
                         print(f"time remaining for BLUE = {referee["time_remaining"]}")
                 if referee['space_remaining'] is not None:

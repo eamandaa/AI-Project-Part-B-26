@@ -479,7 +479,7 @@ def score_moving_order(
 
     return score
             
-def iterative_deepening(
+def iterative_deepening_place(
     board: Board,
     agent_colour: PlayerColor,
     empty_cells: list[Coord],
