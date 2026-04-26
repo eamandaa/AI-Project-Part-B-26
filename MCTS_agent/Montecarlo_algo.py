@@ -31,7 +31,7 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3.8 
+    time_limit = 3.8 #3
 
     # while time.time() - start < time_limit:
     #     node, path = select(root, board)
@@ -84,9 +84,9 @@ def mcts(agent,board) -> Action :
             best = child
 
     # fallback if somehow nothing was visited
-    # if best is None:
-    #     actions = all_legal_actions(agent, board)
-    #     return actions[0] if actions else None
+    if best is None:
+        actions = all_legal_actions(agent, board)
+        return actions[0] if actions else None
 
     return best.action
     
@@ -120,7 +120,7 @@ def select(node,board):
 
 def expand(node,agent,board,path):
     if node.untried_actions == None:
-        node.untried_actions = all_legal_actions(board._turn_color,board)
+        node.untried_actions = all_legal_actions(agent,board)
 
     if node.untried_actions:
         each_action = node.untried_actions.pop()
@@ -138,8 +138,11 @@ def backpropogation(node,score,board,path):
     for _ in range(len(path)):
         board.undo_action()
     while node is not None:
-        node.wins += score
         node.visits += 1
+        if node.action is not None:
+            board_was_agent_turn = True
+        node.wins += score
+        score = -score  # opposite
         node = node.parent
 
     return 0
@@ -275,6 +278,7 @@ def heuristic_func(board,agent_color) -> int:
         + 2  * (agent_center - opp_center)
         - 1  * (agent_edge - opp_edge)
     )
+"""
 """
 def heuristic_func(board,agent_color) -> int:
 
@@ -416,6 +420,14 @@ def heuristic_func(board,agent_color) -> int:
     # 7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
     # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
+    if board.game_over:
+        winner = board.winner_color
+        if winner == agent_color:
+            return 100000  
+        elif winner == opp_color:
+            return -100000
+        else:
+            return -5000
     
     eat_immediately = False
     #1. height
@@ -445,6 +457,63 @@ def heuristic_func(board,agent_color) -> int:
             opp_positions[(coord.r, coord.c)] = cell.height
         elif cell.color == agent_color:
             agent_positions[(coord.r, coord.c)] = cell.height
+
+
+    if len(opp_positions) == 1:
+        opp_r, opp_c = next(iter(opp_positions))
+        opp_h = opp_positions[(opp_r, opp_c)]
+
+        # EARLY RETURN — check if any agent token can eat right now
+        for (r, c), h in agent_positions.items():
+            dist = abs(r - opp_r) + abs(c - opp_c)
+            if dist == 1 and h >= opp_h:
+                return 99000  # eat immediately, skip everything else
+
+        # Only compute the rest if no immediate eat available
+        total_dist = 0
+        min_dist = math.inf
+        closest_h = 0
+        sides_covered = set()
+
+        if opp_r == 0: sides_covered.add('up')
+        if opp_r == 7: sides_covered.add('down')
+        if opp_c == 0: sides_covered.add('left')
+        if opp_c == 7: sides_covered.add('right')
+
+        for (r, c), h in agent_positions.items():
+            dist = abs(r - opp_r) + abs(c - opp_c)
+            total_dist += dist
+
+            if dist < min_dist:
+                min_dist = dist
+                closest_h = h
+
+            if dist == 1:
+                if r < opp_r: sides_covered.add('up')
+                if r > opp_r: sides_covered.add('down')
+                if c < opp_c: sides_covered.add('left')
+                if c > opp_c: sides_covered.add('right')
+
+        sides_blocked = len(sides_covered)
+
+        corner_bonus = 0
+        if sides_blocked >= 3: corner_bonus = 10000
+        if sides_blocked == 4: corner_bonus = 50000
+
+        merge_bonus = 0
+        for (r, c), h in agent_positions.items():
+            dist = abs(r - opp_r) + abs(c - opp_c)
+            if dist <= 3 and h >= 2:
+                merge_bonus += h * 500
+
+        return (
+            50000
+            - total_dist * 200
+            - min_dist * 2000
+            + sides_blocked * 5000
+            + corner_bonus
+            + merge_bonus
+        )
 
     for coord, cell in board._state.items():
         if cell.is_empty:
@@ -483,7 +552,7 @@ def heuristic_func(board,agent_color) -> int:
 
             if is_agent and neighbor_cell.color == opp_color:
                 if cell.height >= neighbor_cell.height:
-                    agent_capture_bonus += neighbor_cell.height * 200 
+                    agent_capture_bonus += neighbor_cell.height * 50 
                     eat_immediately = True
 
             if not neighbor_cell.is_empty and neighbor_cell.color == agent_color:
@@ -510,7 +579,8 @@ def heuristic_func(board,agent_color) -> int:
                 for step in range(1, reach + 1):
                     r = coord.r + dr * step
                     c = coord.c + dc * step
-
+                    if not (0 <= r <= 7 and 0 <= c <= 7):  
+                        break
                     if (r, c) in opp_positions:
                         enemy_step = step
                         break
@@ -552,7 +622,7 @@ def heuristic_func(board,agent_color) -> int:
         #+ 5 * agent_block
         + 500 * agent_capture_bonus
     )
-"""
+
 """
 def all_legal_actions(self,board) -> list[Action]:
     action_list = []
@@ -604,7 +674,7 @@ def all_legal_actions(self,board) -> list[Action]:
     return action_list
     
 """
-def all_legal_actions(self,board) -> list[Action]:
+def all_legal_actions( self,board) -> list[Action]:
     eat_actions = []
     cascade_actions = []
     move_actions = []
