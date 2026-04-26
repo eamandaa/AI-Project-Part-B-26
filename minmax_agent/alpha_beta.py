@@ -80,6 +80,8 @@ def heuristic_func(self,board,agent_color) -> int:
     else:
         opp_color = PlayerColor.RED
     
+    
+    
     # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
     # priority: 1. If last token  2. Will see if we can eat our adjacent stacj 3. cascade and ppush it away 4. continue with score func 
@@ -110,7 +112,7 @@ def heuristic_func(self,board,agent_color) -> int:
     agent_cascade_push = 0
     opp_cascade_push = 0
 
-    agent_block = 0 #not in use
+    wasted_cascade_penalty = 0
     agent_capture_bonus = 0
 
     agent_positions = {} 
@@ -266,8 +268,6 @@ def heuristic_func(self,board,agent_color) -> int:
                     agent_capture_bonus += neighbor_cell.height * 50 
                     eat_immediately = True
 
-            if not neighbor_cell.is_empty and neighbor_cell.color == agent_color:
-                agent_block += 2
 
             #unsure good or not currently commented out in the score func
             if is_agent and neighbor_cell.color == opp_color:
@@ -277,7 +277,8 @@ def heuristic_func(self,board,agent_color) -> int:
             elif not is_agent and neighbor_cell.color == agent_color:
                 opp_eat_threats += cell.height
 
-         #Priority 2 cascade out of the board
+        #Priority 2 cascade out of the board
+        
 
         if is_agent and cell.height >= 2:
             reach = cell.height
@@ -293,7 +294,19 @@ def heuristic_func(self,board,agent_color) -> int:
                     c = coord.c + dc * step
 
                     if not (0 <= r <= 7 and 0 <= c <= 7):  
-                        break
+                        enemy_in_path = False
+                        for step in range(1, reach + 1):
+                            r = coord.r + dr * step
+                            c = coord.c + dc * step
+                            if not (0 <= r <= 7 and 0 <= c <= 7):
+                                break
+                            if (r, c) in opp_positions:
+                                enemy_in_path = True
+                                break
+                        
+                        if not enemy_in_path:
+                            # Wasteful cascade  our token falls off , we want to prevent this o penalty
+                            wasted_cascade_penalty += cell.height * 30
                     if (r, c) in opp_positions:
                         enemy_step = step
                         break
@@ -325,6 +338,28 @@ def heuristic_func(self,board,agent_color) -> int:
     if eat_immediately:
         return 90000
 
+    # #make a roken chase another one and not wonder aimlessly
+    # focus_bonus = 0
+    # for (opp_r, opp_c), opp_h in opp_positions.items():
+    #     min_dist = math.inf
+    #     for (r, c), h in agent_positions.items():
+    #         dist = abs(r - opp_r) + abs(c - opp_c)
+    #         if dist < min_dist:
+    #             min_dist = dist
+    #     # Closer = higher bonus
+    #     focus_bonus += max(0, 20 - min_dist) * 200  # max bonus when dist=0
+
+    # # Also penalise tokens that are far from ALL enemies (wandering)
+    # wander_penalty = 0
+    # for (r, c), h in agent_positions.items():
+    #     min_dist_to_opp = math.inf
+    #     for (opp_r, opp_c) in opp_positions:
+    #         dist = abs(r - opp_r) + abs(c - opp_c)
+    #         if dist < min_dist_to_opp:
+    #             min_dist_to_opp = dist
+    #     if min_dist_to_opp > 5:  # too far from any enemy
+    #         wander_penalty += min_dist_to_opp * 50
+
     # Normal score
     return (
         10 * (agent_total - opp_total)
@@ -334,6 +369,9 @@ def heuristic_func(self,board,agent_color) -> int:
         - 1  * (agent_edge - opp_edge)
         #+ 5 * agent_block
         + 500 * agent_capture_bonus
+        - wasted_cascade_penalty
+        # + focus_bonus      # ← reward chasing nearest enemy
+        # - wander_penalty
     )
 
 

@@ -31,23 +31,7 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3.8 #3
-
-    # while time.time() - start < time_limit:
-    #     node, path = select(root, board)
-    #     print(f"after select: path={len(path)}, children={len(node.children)}, untried={node.untried_actions}")
-
-    #     if not node.is_ended(board):
-    #         node = expand(node, agent, board, path)
-    #         print(f"after expand: path={len(path)}, root children={len(root.children)}")
-
-    #     score = simulate(agent, board)
-    #     print(f"after simulate: score={score}")
-
-    #     backpropogation(node, score, board, path)
-    #     print(f"after backprop: root visits={root.visits}")
-        
-    #     break 
+    time_limit = 3.6 #3
 
     while time.time() - start < time_limit:
         # 1. Do selection
@@ -139,8 +123,6 @@ def backpropogation(node,score,board,path):
         board.undo_action()
     while node is not None:
         node.visits += 1
-        if node.action is not None:
-            board_was_agent_turn = True
         node.wins += score
         score = -score  # opposite
         node = node.parent
@@ -411,25 +393,27 @@ def heuristic_func(board,agent_color) -> int:
     return score
 """
 
+
 def heuristic_func(board,agent_color) -> int:
     if agent_color == PlayerColor.RED:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
     
-    # 7 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
+    # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
-    # priority: 1. Will see if we can eat our adjacent stacj 2. cascade and ppush it away 3. continue with score func 
+    # priority: 1. If last token  2. Will see if we can eat our adjacent stacj 3. cascade and ppush it away 4. continue with score func 
     if board.game_over:
         winner = board.winner_color
         if winner == agent_color:
             return 100000  
         elif winner == opp_color:
             return -100000
-        else:
+        else: #DOUBLE CHECK FOR LATER - FOR TIE CONDITION
             return -5000
     
     eat_immediately = False
+
     #1. height
     agent_total = 0
     opp_total = 0
@@ -445,8 +429,10 @@ def heuristic_func(board,agent_color) -> int:
 
     agent_cascade_push = 0
     opp_cascade_push = 0
-    agent_block = 0
+
+    wasted_cascade_penalty = 0
     agent_capture_bonus = 0
+
     agent_positions = {} 
     opp_positions = {}    
 
@@ -458,35 +444,41 @@ def heuristic_func(board,agent_color) -> int:
         elif cell.color == agent_color:
             agent_positions[(coord.r, coord.c)] = cell.height
 
-
+    #if only 1 token of opponent left, need a trap strategy
     if len(opp_positions) == 1:
         opp_r, opp_c = next(iter(opp_positions))
         opp_h = opp_positions[(opp_r, opp_c)]
 
-        # EARLY RETURN — check if any agent token can eat right now
+        # immediate eat check
         for (r, c), h in agent_positions.items():
             dist = abs(r - opp_r) + abs(c - opp_c)
             if dist == 1 and h >= opp_h:
-                return 99000  # eat immediately, skip everything else
+                return 99000
 
-        # Only compute the rest if no immediate eat available
         total_dist = 0
         min_dist = math.inf
-        closest_h = 0
         sides_covered = set()
+        escape_block_bonus = 0
+        cascade_trap_bonus = 0
 
         if opp_r == 0: sides_covered.add('up')
         if opp_r == 7: sides_covered.add('down')
         if opp_c == 0: sides_covered.add('left')
         if opp_c == 7: sides_covered.add('right')
 
+        # find all squares opp can escape to (adjacent empty squares)
+        opp_escape_squares = set()
+        for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+            nr, nc = opp_r + dr, opp_c + dc
+            if 0 <= nr <= 7 and 0 <= nc <= 7:
+                if (nr, nc) not in opp_positions and (nr, nc) not in agent_positions:
+                    opp_escape_squares.add((nr, nc))
+
         for (r, c), h in agent_positions.items():
             dist = abs(r - opp_r) + abs(c - opp_c)
             total_dist += dist
-
             if dist < min_dist:
                 min_dist = dist
-                closest_h = h
 
             if dist == 1:
                 if r < opp_r: sides_covered.add('up')
@@ -494,27 +486,66 @@ def heuristic_func(board,agent_color) -> int:
                 if c < opp_c: sides_covered.add('left')
                 if c > opp_c: sides_covered.add('right')
 
-        sides_blocked = len(sides_covered)
 
+            # trapping opp
+            for (er, ec) in opp_escape_squares:
+                esc_dist = abs(r - er) + abs(c - ec)
+                if esc_dist == 0:  #  blocking it
+                    escape_block_bonus += 5000
+                elif esc_dist == 1:  # threatening it
+                    escape_block_bonus += 2000
+
+            # cascade opp to corner
+            if h >= 2:
+                reach = h
+                for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                    # Scan path
+                    for step in range(1, reach + 1):
+                        nr, nc = r + dr * step, c + dc * step
+                        if not (0 <= nr <= 7 and 0 <= nc <= 7):
+                            break
+                        if (nr, nc) == (opp_r, opp_c):
+                            # We can cascade into Blue
+                            push_r = opp_r + dr * (reach - step)
+                            push_c = opp_c + dc * (reach - step)
+
+                            # Pushed off board = win
+                            if not (0 <= push_r <= 7 and 0 <= push_c <= 7):
+                                cascade_trap_bonus += 30000
+
+                            # Pushed to corner = nearly win
+                            elif (push_r in (0,7) and push_c in (0,7)):
+                                cascade_trap_bonus += 15000
+
+                            # Pushed to edge = good
+                            elif push_r in (0,7) or push_c in (0,7):
+                                cascade_trap_bonus += 8000
+
+                            # Pushed toward corner direction = ok
+                            else:
+                                cascade_trap_bonus += 2000
+                            break
+
+        sides_blocked = len(sides_covered)
         corner_bonus = 0
         if sides_blocked >= 3: corner_bonus = 10000
         if sides_blocked == 4: corner_bonus = 50000
 
-        merge_bonus = 0
-        for (r, c), h in agent_positions.items():
-            dist = abs(r - opp_r) + abs(c - opp_c)
-            if dist <= 3 and h >= 2:
-                merge_bonus += h * 500
+        # Fewer escape squares = more trapped
+        escape_trapped_bonus = (4 - len(opp_escape_squares)) * 3000
 
         return (
             50000
-            - total_dist * 200
-            - min_dist * 2000
-            + sides_blocked * 5000
+            - total_dist * 300
+            - min_dist * 800
+            + sides_blocked * 3000
+            + escape_block_bonus      # block escape routes ← key
+            + cascade_trap_bonus      # cascade pushes Blue to corner/off ← key
+            + escape_trapped_bonus    # fewer escapes = better
             + corner_bonus
-            + merge_bonus
         )
 
+    #Main algo if there are multiple opponent tokens 
     for coord, cell in board._state.items():
         if cell.is_empty:
             continue
@@ -555,9 +586,8 @@ def heuristic_func(board,agent_color) -> int:
                     agent_capture_bonus += neighbor_cell.height * 50 
                     eat_immediately = True
 
-            if not neighbor_cell.is_empty and neighbor_cell.color == agent_color:
-                agent_block += 2
 
+            #unsure good or not currently commented out in the score func
             if is_agent and neighbor_cell.color == opp_color:
                 agent_eat_threats += neighbor_cell.height  * 60 
                 #if cell.height >= neighbor_cell.height:
@@ -565,7 +595,8 @@ def heuristic_func(board,agent_color) -> int:
             elif not is_agent and neighbor_cell.color == agent_color:
                 opp_eat_threats += cell.height
 
-                #Priority 2
+        #Priority 2 cascade out of the board
+        
 
         if is_agent and cell.height >= 2:
             reach = cell.height
@@ -579,8 +610,21 @@ def heuristic_func(board,agent_color) -> int:
                 for step in range(1, reach + 1):
                     r = coord.r + dr * step
                     c = coord.c + dc * step
+
                     if not (0 <= r <= 7 and 0 <= c <= 7):  
-                        break
+                        enemy_in_path = False
+                        for step in range(1, reach + 1):
+                            r = coord.r + dr * step
+                            c = coord.c + dc * step
+                            if not (0 <= r <= 7 and 0 <= c <= 7):
+                                break
+                            if (r, c) in opp_positions:
+                                enemy_in_path = True
+                                break
+                        
+                        if not enemy_in_path:
+                            # Wasteful cascade  our token falls off , we want to prevent this o penalty
+                            wasted_cascade_penalty += cell.height * 30
                     if (r, c) in opp_positions:
                         enemy_step = step
                         break
@@ -612,6 +656,28 @@ def heuristic_func(board,agent_color) -> int:
     if eat_immediately:
         return 90000
 
+    # #make a roken chase another one and not wonder aimlessly
+    # focus_bonus = 0
+    # for (opp_r, opp_c), opp_h in opp_positions.items():
+    #     min_dist = math.inf
+    #     for (r, c), h in agent_positions.items():
+    #         dist = abs(r - opp_r) + abs(c - opp_c)
+    #         if dist < min_dist:
+    #             min_dist = dist
+    #     # Closer = higher bonus
+    #     focus_bonus += max(0, 20 - min_dist) * 200  # max bonus when dist=0
+
+    # # Also penalise tokens that are far from ALL enemies (wandering)
+    # wander_penalty = 0
+    # for (r, c), h in agent_positions.items():
+    #     min_dist_to_opp = math.inf
+    #     for (opp_r, opp_c) in opp_positions:
+    #         dist = abs(r - opp_r) + abs(c - opp_c)
+    #         if dist < min_dist_to_opp:
+    #             min_dist_to_opp = dist
+    #     if min_dist_to_opp > 5:  # too far from any enemy
+    #         wander_penalty += min_dist_to_opp * 50
+
     # Normal score
     return (
         10 * (agent_total - opp_total)
@@ -621,59 +687,12 @@ def heuristic_func(board,agent_color) -> int:
         - 1  * (agent_edge - opp_edge)
         #+ 5 * agent_block
         + 500 * agent_capture_bonus
+        - wasted_cascade_penalty
+        # + focus_bonus      # ← reward chasing nearest enemy
+        # - wander_penalty
     )
 
-"""
-def all_legal_actions(self,board) -> list[Action]:
-    action_list = []
-    cascade_actions = []
-    move_actions = []
-    for current_coord, cell in board._state.items():
-        if cell.is_empty:
-            continue
-        if cell.color != board.turn_color:
-            continue
-        for direction in CARDINAL_DIRECTIONS:
-            current_r , current_c = current_coord.r, current_coord.c
-            current_color, current_height = cell.color, cell.height
-       
-            if direction == Direction.Up:    
-                if current_r == 0: 
-                    continue
-                new_coord = Coord(current_r - 1, current_c)
-            elif direction == Direction.Down: 
-                if current_r == 7: 
-                    continue
-                new_coord = Coord(current_r + 1, current_c)
-            elif direction == Direction.Left: 
-                if current_c == 0: 
-                    continue
-                new_coord = Coord(current_r, current_c - 1)
-            else:                            
-                if current_c == 7: continue
-                new_coord = Coord(current_r, current_c + 1)
-            
-            neighbour = board._state.get(new_coord)
-            #EAT
-            if neighbour is not None and not neighbour.is_empty:
-                if neighbour.color != current_color:
-                    if current_height >= neighbour.height:
-                        action_list.append(EatAction(current_coord, direction))
 
-    
-            # MOVE 
-   
-            if neighbour is None or neighbour.is_empty or neighbour.color == current_color:
-                action_list.append(MoveAction(current_coord, direction))
-
-            # CASCADE 
-            if current_height >= 2:
-                action_list.append(CascadeAction(current_coord, direction))
-
-
-    return action_list
-    
-"""
 def all_legal_actions( self,board) -> list[Action]:
     eat_actions = []
     cascade_actions = []
