@@ -7,6 +7,7 @@ import math
 import time
 import random
 import copy
+
 class MCTS_node:
     def __init__(self, parent=None, action=None):
         self.parent = parent #Parent node
@@ -32,7 +33,8 @@ class MCTS_node:
 def mcts(agent,board) -> Action :
     root = MCTS_node()
     start = time.time()
-    time_limit = 3.7 #3
+    time_limit = 3 #3
+
 
     while time.time() - start < time_limit:
         # 1. Do selection
@@ -48,7 +50,7 @@ def mcts(agent,board) -> Action :
         #4. backpropagation
         backpropogation(node,score,board,path)
 
-    actions = all_legal_actions(agent, board)
+    actions = all_legal_actions(agent,board)
     
     # Fallback if root never expanded
     # if not root.children:
@@ -62,8 +64,8 @@ def mcts(agent,board) -> Action :
         if child.visits == 0:
             continue  # skip unvisited children
         
-        win_rate = (child.wins/100) / child.visits
-        
+        win_rate = (child.wins/100000) / child.visits
+        print("win rate:", win_rate, "win:",child.wins)
         if win_rate > best_win_rate:
             best_win_rate = win_rate
             best = child
@@ -72,6 +74,15 @@ def mcts(agent,board) -> Action :
     if best is None:
         actions = all_legal_actions(agent, board)
         return actions[0] if actions else None
+    
+    # 1. Is the best action being picked correctly?
+    # best = max(root.children, key=lambda c: c.wins/c.visits if c.visits > 0 else -math.inf)
+    # print(f"Best action win_rate: {best.wins/best.visits:.3f}, visits: {best.visits}")
+
+    # # 2. Are high win rate nodes also high visit nodes?
+    # for child in sorted(root.children, key=lambda c: c.visits, reverse=True)[:5]:
+    #     if child.visits > 0:
+    #         print(f"visits: {child.visits}, win_rate: {child.wins/child.visits:.3f}")
 
     return best.action
     
@@ -105,7 +116,7 @@ def select(node,board):
 
 def expand(node,agent,board,path):
     if node.untried_actions == None:
-        node.untried_actions = all_legal_actions(agent,board)
+        node.untried_actions = all_legal_actions(board._turn_color,board)
 
     if node.untried_actions:
         each_action = node.untried_actions.pop()
@@ -116,27 +127,44 @@ def expand(node,agent,board,path):
         return child
     return node  
 
-# def simulate(agent,board):
-#     return heuristic_func(board, agent._color)
+def simulate(agent,board):
+    #return heuristic_func(board, agent._color)
+    depth = 5
+    current_color = board._turn_color
+    moves_done = 0
 
-def simulate(agent, board):
-    steps = 0  # track actual applied actions
-
-    for _ in range(5): # the depth of mcts
+    for _ in range(depth):
         if board.game_over:
             break
-        actions = all_legal_actions(board._turn_color, board)
+
+        actions = all_legal_actions(current_color, board)
         if not actions:
             break
-        action = random.choice(actions)
-        board.apply_action(action)
-        steps += 1  # only increment when actually applied
 
-    score = heuristic_func(board, agent._color)
+        # PRIORITY 1: eat if possible
+        eat_actions = [a for a in actions if isinstance(a, EatAction)]
+        if eat_actions:
+            action = random.choice(eat_actions)
+        else:
+            # PRIORITY 2: heuristic-guided
+            best_score = -math.inf
+            best_action = None
 
-    for _ in range(steps):  # undo exactly what was applied 
-        board.undo_action()
-    return score
+            for a in actions:
+                board.apply_action(a)
+                score = heuristic_func(board, agent._color)
+                board.undo_action()
+
+                if score > best_score:
+                    best_score = score
+                    best_action = a
+
+            action = best_action
+
+        #board.apply_action(action)
+        current_color = board._turn_color
+
+    return heuristic_func(board, agent._color)
 
 def backpropogation(node,score,board,path):
     for _ in range(len(path)):
@@ -148,6 +176,147 @@ def backpropogation(node,score,board,path):
         node = node.parent
 
     return 0
+# class MCTS_node:
+#     def __init__(self, parent=None, action=None):
+#         self.parent = parent #Parent node
+#         self.action = action #previous actions
+#         self.children = [] #children node
+#         self.wins = 0 #Backpropagation score
+#         self.visits = 0 #how many times has this node been visited
+#         self.untried_actions = None #populated on first expansion
+
+#     def fully_expanded(self):
+#         flag_var = self.untried_actions is not None and len(self.untried_actions) == 0
+#         return flag_var
+    
+#     def is_ended(self,board):
+#         return board.game_over or not board._has_legal_actions()
+
+#     def UCB1(self,exploration = 1.41): #1.41
+#         if self.visits == 0:
+#             return math.inf #always do the unvisited one first
+#         return (self.wins / self.visits) + exploration * math.sqrt(math.log(self.parent.visits) / self.visits)
+
+
+# def mcts(agent,board) -> Action :
+#     root = MCTS_node()
+#     start = time.time()
+#     time_limit = 3.7 #3
+
+#     while time.time() - start < time_limit:
+#         # 1. Do selection
+#         node, path = select(root,board)
+
+#         #2. Expand
+#         if node.is_ended(board) == False:
+#             node = expand(node,agent,board,path)
+        
+#         # 3. Simulate
+#         score = simulate(agent,board)
+
+#         #4. backpropagation
+#         backpropogation(node,score,board,path)
+
+#     actions = all_legal_actions(agent, board)
+    
+#     # Fallback if root never expanded
+#     # if not root.children:
+#     #     actions = all_legal_actions(board._turn_color, board)
+#     #     return actions[0] if actions else None
+    
+#     best = None
+#     best_win_rate = -math.inf
+
+#     for child in root.children:
+#         if child.visits == 0:
+#             continue  # skip unvisited children
+        
+#         win_rate = (child.wins/100) / child.visits
+        
+#         if win_rate > best_win_rate:
+#             best_win_rate = win_rate
+#             best = child
+
+#     # fallback if somehow nothing was visited
+#     if best is None:
+#         actions = all_legal_actions(agent, board)
+#         return actions[0] if actions else None
+
+#     return best.action
+    
+#     # best = None
+#     # best_visits = -math.inf
+
+#     # for child in root.children:
+#     #     if child.visits > best_visits:
+#     #         best_visits = child.visits
+#     #         best = child
+
+#     # return best.action
+
+# def select(node,board):
+#     path = []
+#     while node.is_ended(board) == False and node.fully_expanded():
+#         best_child = None
+#         best_score = -math.inf
+
+#         for child in node.children:
+#             score = child.UCB1()
+#             if score > best_score:
+#                 best_score = score
+#                 best_child = child
+
+#         node = best_child
+#         board.apply_action(node.action)
+#         path.append(node)
+
+#     return node, path
+
+# def expand(node,agent,board,path):
+#     if node.untried_actions == None:
+#         node.untried_actions = all_legal_actions(agent,board)
+
+#     if node.untried_actions:
+#         each_action = node.untried_actions.pop()
+#         board.apply_action(each_action)
+#         child = MCTS_node(parent=node, action=each_action)
+#         node.children.append(child)
+#         path.append(child)
+#         return child
+#     return node  
+
+# # def simulate(agent,board):
+# #     return heuristic_func(board, agent._color)
+
+# def simulate(agent, board):
+#     steps = 0  # track actual applied actions
+
+#     for _ in range(5): # the depth of mcts
+#         if board.game_over:
+#             break
+#         actions = all_legal_actions(board._turn_color, board)
+#         if not actions:
+#             break
+#         action = random.choice(actions)
+#         board.apply_action(action)
+#         steps += 1  # only increment when actually applied
+
+#     score = heuristic_func(board, agent._color)
+
+#     for _ in range(steps):  # undo exactly what was applied 
+#         board.undo_action()
+#     return score
+
+# def backpropogation(node,score,board,path):
+#     for _ in range(len(path)):
+#         board.undo_action()
+#     while node is not None:
+#         node.visits += 1
+#         node.wins += score
+#         #score = -score  # opposite
+#         node = node.parent
+
+#     return 0
 
 def heuristic_func(board,agent_color) -> int:
     if agent_color == PlayerColor.RED:

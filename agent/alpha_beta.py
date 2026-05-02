@@ -135,6 +135,7 @@ def heuristic_func(self,board,agent_color) -> int:
         else: #DOUBLE CHECK FOR LATER - FOR TIE CONDITION
             return -5000
     
+    
     eat_immediately = False
 
     #1. height
@@ -624,7 +625,7 @@ def evaluate_cascade_off_board(
     )
     
     return score
-"""
+
 def all_legal_actions(self,board) -> list[Action]:
     eat_actions = []
     cascade_actions = []
@@ -713,7 +714,7 @@ def all_legal_actions(self,board) -> list[Action]:
 
 
     return action_list
-"""
+
 
 def iterative_deepening_play(
     self,
