@@ -122,8 +122,134 @@ def heuristic_func(self,board,agent_color) -> int:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
+        
+        #In case of game over
+    if board.game_over:
+        winner = board.winner_color
+        if winner == agent_color:
+            return 100000
+        elif winner == opp_color:
+            return -100000
+        else:
+            return -5000
+        
+    #1. height
+    agent_total = 0
+    opp_total = 0
+    # 3. Center Control
+    agent_center = 0
+    opp_center = 0
+    # 4. being in edge
+    agent_edge = 0
+    opp_edge = 0
+
+    agent_eat_threats = 0
+    opp_eat_threats= 0
+
+    agent_cascade_push = 0
+    opp_cascade_push = 0
+
+    for coord, cell in board._state.items():
+        is_agent = (cell.color == agent_color)
+        if cell.is_empty:
+            continue
+        if cell.color == agent_color:
+            agent_total += cell.height
+        else:
+            opp_total += cell.height 
+
+        if 3 <= coord.r <= 5 and 3 <= coord.c <= 5:
+            if cell.color == agent_color:
+                agent_center += 1
+            else:
+                opp_center += 1
+
+        if coord.r == 0 or coord.r == 7 or coord.c == 0 or coord.c == 7:
+            if cell.color == agent_color:
+                agent_edge += 1
+            else:
+                opp_edge += 1
+
+        #2. potential to eat
+        for direction in CARDINAL_DIRECTIONS:
+            try: 
+                neighbor = coord + direction 
+            except ValueError: 
+                continue
+
+            neighbor_cell = board._state[neighbor]
+
+            if neighbor_cell.is_empty:
+                continue
+
+            if is_agent and neighbor_cell.color == opp_color:
+                agent_eat_threats += neighbor_cell.height  
+
+            elif (not is_agent) and neighbor_cell.color == agent_color:
+                opp_eat_threats += neighbor_cell.height
     
-    # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
+    
+        #Heuristic taking account of cascade and push
+        if is_agent and cell.height >= 2:
+                reach = cell.height
+                # check if enemy is in same row or col within cascade reach
+                dr = abs(coord.r - neighbor.r)
+                dc = abs(coord.c - neighbor.c)
+                if neighbor_cell.color == opp_color:
+                    if dr == 0 and dc <= reach:  # same row, can cascade
+                        # bonus if push sends them toward edge
+                        push_col = neighbor.c + (reach - dc)
+                        if push_col >= 7 or push_col <= 0:
+                            agent_cascade_push += cell.height * 2  # big bonus near edge
+                        else:
+                            agent_cascade_push += cell.height
+                    if dc == 0 and dr <= reach:  # same col, can cascade
+                        push_row = neighbor.r + (reach - dr)
+                        if push_row >= 7 or push_row <= 0:
+                            agent_cascade_push += cell.height * 2
+                        else:
+                            agent_cascade_push += cell.height
+
+        elif not is_agent and neighbor_cell.color == agent_color:#Count for opponent
+            if cell.height >= 2:
+                reach = cell.height
+                dr = abs(coord.r - neighbor.r)
+                dc = abs(coord.c - neighbor.c)
+                if dr == 0 and dc <= reach:
+                    push_col = neighbor.c + (reach - dc)
+                    if push_col >= 7 or push_col <= 0:
+                        opp_cascade_push += cell.height * 2
+                    else:
+                        opp_cascade_push += cell.height
+                if dc == 0 and dr <= reach:
+                    push_row = neighbor.r + (reach - dr)
+                    if push_row >= 7 or push_row <= 0:
+                        opp_cascade_push += cell.height * 2
+                    else:
+                        opp_cascade_push += cell.height
+    
+    height_score = agent_total - opp_total
+    center_score = agent_center - opp_center
+    edge_score = agent_edge - opp_edge
+    eat_threat_score = agent_eat_threats - opp_eat_threats
+    cascade_score = agent_cascade_push - opp_cascade_push
+
+    score = (
+        50 * height_score
+        + 20 * eat_threat_score
+        + 6 * cascade_score
+        + 2 * center_score
+        - 1 * edge_score
+    )
+    
+    return score
+    
+ 
+        
+
+    
+    """
+       # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
     # priority: 1. If last token  2. Will see if we can eat our adjacent stacj 3. cascade and ppush it away 4. continue with score func 
     if board.game_over:
@@ -134,8 +260,7 @@ def heuristic_func(self,board,agent_color) -> int:
             return -100000
         else: #DOUBLE CHECK FOR LATER - FOR TIE CONDITION
             return -5000
-    
-    
+
     eat_immediately = False
 
     #1. height
@@ -406,7 +531,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     # Normal score
     return (
-        10 * (agent_total - opp_total)
+        100 * (agent_total - opp_total)
         #+ 8  * (agent_eat_threats - opp_eat_threats)
         + 1  * (agent_cascade_push - opp_cascade_push)
         + 2  * (agent_center - opp_center)
@@ -417,7 +542,7 @@ def heuristic_func(self,board,agent_color) -> int:
         # + focus_bonus      # ← reward chasing nearest enemy
         # - wander_penalty
     )
-
+"""
 def manhanttan_distance(
     coord_one: Coord,
     coord_two: Coord
@@ -617,8 +742,8 @@ def evaluate_cascade_off_board(
     cascade_score = agent_cascade_push - opp_cascade_push
 
     score = (
-        10 * height_score
-        + 8 * eat_threat_score
+        50 * height_score
+        + 20 * eat_threat_score
         + 6 * cascade_score
         + 2 * center_score
         - 1 * edge_score
