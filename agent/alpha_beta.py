@@ -1,8 +1,11 @@
 from referee.game import PlayerColor, Coord, Direction, \
-    Action, PlaceAction, MoveAction, EatAction, CascadeAction, CARDINAL_DIRECTIONS, IllegalActionException, GamePhase   
+    Action, PlaceAction, MoveAction, EatAction, CascadeAction, CARDINAL_DIRECTIONS, IllegalActionException, GamePhase, CellState
 
 from referee.game import Board
 import math
+from .zobrist_hashing import compute_hash, ScoreFlag
+import time 
+from referee.game import BOARD_N
 
 def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     best_action = None
@@ -25,16 +28,48 @@ def choose_best_action(self,board,depth) -> Action: #The big picture of min max
               
     return best_action
 
-def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each depth of min max
+def min_max_algo(
+    self, 
+    maximizing: bool, 
+    board: Board, 
+    depth: int, 
+    alpha: float, 
+    beta:float,
+) -> int: #Each depth of min max
     """
     Determine the next action using min_max algo
     """
+
+    hash_key = compute_hash(board)
+    tt_move = None
+
+    # check whether already visit this board state before 
+    if hash_key in self._tranposition_table:
+        stored_depth, stored_value, score_flag, stored_best_move = self._tranposition_table[hash_key]
+        if stored_depth >= depth:
+            if score_flag == ScoreFlag.EXACT:
+                return stored_value
+            if score_flag == ScoreFlag.LOWER_BOUND and stored_value >= beta:
+                return stored_value
+            if score_flag == ScoreFlag.UPPER_BOUND and stored_value <= alpha:
+                return stored_value
+        tt_move = stored_best_move
+
     #Move, eat and cascade
     #Red always goes first -> Max
     if board.game_over or (not board._has_legal_actions()) or depth == 0:
-        return heuristic_func(self,board,self._color)
+        value =  heuristic_func(self,board,self._color)
+        self._tranposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
+        return value
     
     possible_actions = all_legal_actions(self,board)
+
+    if tt_move is not None and tt_move in possible_actions:
+        possible_actions.remove(tt_move)
+        possible_actions.insert(0, tt_move)
+    
+    alpha_original = alpha
+    best_move = None
     
     if maximizing == True:
         best_score = -math.inf
@@ -43,28 +78,36 @@ def min_max_algo(self, maximizing, board, depth, alpha, beta) -> int: #Each dept
             board.apply_action(each_action)
             new_score = min_max_algo(self,False, board, depth - 1,alpha,beta)
             board.undo_action()
-            best_score = max(best_score, new_score)
+            if new_score > best_score:
+                best_score = new_score
+                best_move = each_action
             alpha = max(alpha, best_score)
             if alpha >= beta:
                 break
-        return best_score
     
-    elif maximizing == False:
+    else:
         best_score = math.inf
         
         for each_action in possible_actions:
             board.apply_action(each_action)
             new_score = min_max_algo(self,True, board, depth - 1,alpha,beta)
             board.undo_action()
-            best_score = min(best_score, new_score)
+            if new_score < best_score:
+                best_score = new_score
+                best_move = each_action
             beta = min(beta, best_score)
             if alpha >= beta:
                 break
 
-        #print(f"DEBUG: depth {depth}, best score={best_score}")
-        return best_score
+    if best_score <= alpha_original:
+        score_flag = ScoreFlag.UPPER_BOUND
+    elif best_score >= beta:
+        score_flag = ScoreFlag.LOWER_BOUND
+    else:
+        score_flag = ScoreFlag.EXACT
 
-    return 0
+    self._tranposition_table[hash_key] = (depth, best_score, score_flag, best_move)
+    return best_score
 
 # def is_capture_move(board, move, agent_color):
 #     new_board = simulate(board, move)
@@ -79,8 +122,6 @@ def heuristic_func(self,board,agent_color) -> int:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
-    
-    
     
     # 4 factors: 1. Our total stack height 2. Potential to be eaten 3. Potential for center control
     # 4. Being in the edge  
@@ -234,24 +275,26 @@ def heuristic_func(self,board,agent_color) -> int:
 
         is_agent = (cell.color == agent_color)
         
+        # reward based on height
         if is_agent:
             agent_total += cell.height
         else:
             opp_total += cell.height 
 
+        # reward based on being centre
         if 3 <= coord.r <= 5 and 3 <= coord.c <= 5:
             if is_agent:
                 agent_center += 1
             else:
                 opp_center += 1
 
+        # penalise on being edge
         if coord.r == 0 or coord.r == 7 or coord.c == 0 or coord.c == 7:
             if is_agent:
                 agent_edge += 1
             else:
                 opp_edge += 1
         
-
         #2. potential to eat
         for direction in CARDINAL_DIRECTIONS:
             try:
@@ -334,7 +377,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     else:
                         opp_cascade_push += cell.height* 1
 
-
+    # sounds risky
     if eat_immediately:
         return 600
 
@@ -374,10 +417,93 @@ def heuristic_func(self,board,agent_color) -> int:
         # - wander_penalty
     )
 
+def manhanttan_distance(
+    coord_one: Coord,
+    coord_two: Coord
+) -> int:
+    """Calculate the distance of the coordinates using Manhattan distance"""
+    return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
-
+def _evaluate_eat(
+    opponents_stacks:dict[tuple[int, int], int],
+    curr_coord: Coord,
+    curr_cell_state: CellState,
+) -> int:
+    """
+    Evaluate how likely the agent could eat the opponents, and 
+    how likely we are being eaten by opponents
     """
 
+    eat_score = 0
+    curr_cell_height = curr_cell_state.height
+
+    for (opponent_r, opponent_c), opponent_height in opponents_stacks.items():
+        distance = manhanttan_distance(curr_coord, Coord(opponent_r, opponent_c))
+
+        # unlikely to happen, but just for safe guard
+        if distance == 0:
+            continue
+        
+        # skip stacks that are too far away
+        if distance > 4:
+            continue
+
+        current_eat_score = 0
+        
+        height_difference = abs(curr_cell_height - opponent_height)
+
+        if curr_cell_height >= opponent_height:
+            current_eat_score += height_difference
+        else:
+            current_eat_score -= height_difference
+
+        # more important 
+        if distance <= 2:
+            weight = 2
+        # could be a threat/potential eat
+        elif distance <= 4:
+            weight = 1
+
+        eat_score += current_eat_score * weight
+
+    return eat_score
+
+def evaluate_cascade_off_board(
+    opponents_stacks:dict[tuple[int, int], int],
+    curr_coord: Coord,
+    curr_cell_state: CellState,
+    board: Board
+)-> int:
+    """
+    On the given position, how likely you are being pushed off the board
+    and how likely you can push the enemy off the board
+    """
+    cascade_score = 0
+    curr_cell_height = curr_cell_state.height
+
+    distance_curr_cord_r_to_edge = min(curr_coord.r, BOARD_N - curr_coord.r)
+    distance_curr_cord_c_to_edge = min(curr_coord.c, BOARD_N - curr_coord.c)
+    min_distance_curr_cord = min(distance_curr_cord_c_to_edge, distance_curr_cord_r_to_edge)
+
+    for (opponent_r, opponent_c), opponent_height in opponents_stacks.items():
+
+        # cascade can only happen in same row or same column
+        if opponent_r != curr_coord.r and opponent_c != curr_coord.c:
+            continue
+        
+        distance_opponent_r_to_edge = min(opponent_r, BOARD_N - opponent_r)
+        distance_opponent_c_to_edge = min(opponent_c, BOARD_N - opponent_c)
+
+        min_distance_opponent = min(distance_opponent_c_to_edge, distance_opponent_r_to_edge)
+
+    return 0
+
+
+
+
+
+
+""""
     #In case of game over
     if board.game_over:
         winner = board.winner_color
@@ -588,3 +714,103 @@ def all_legal_actions(self,board) -> list[Action]:
 
     return action_list
 """
+
+def iterative_deepening_play(
+    self,
+    board: Board,
+    max_depth: int = 8,
+    time_limit: float = 2.5
+) -> Action:
+    best_action = None
+    start = time.time()
+
+    for depth in range(1, max_depth + 1):
+        score, action = minimax_root(self,
+            board = board, depth=depth, start_time=start, 
+            time_limit=time_limit
+        )
+
+        if action is not None:
+            best_action = action
+        
+        if time.time() - start > time_limit:
+            print(f"Timed out at depth {depth}, using depth {depth-1} result")
+            break
+
+    return best_action
+
+def minimax_root(
+    self,
+    board: Board,
+    depth: int,
+    start_time: float,
+    time_limit: float
+) -> tuple[float, Action | None]:
+    """
+    Evaluate each possible action based on the score then return 
+    the action with highest score 
+    """
+    
+    best_action = None
+    best_score = float("-inf")
+    alpha = float("-inf")
+    beta = float("inf")
+
+    possible_actions = all_legal_actions(self,board)
+
+    hash_key = compute_hash(board)
+
+    tt_move = None
+    if hash_key in self._tranposition_table:
+        _, _, _, stored_best_move = self._tranposition_table[hash_key]
+        tt_move = stored_best_move
+    
+    if tt_move and tt_move in possible_actions:
+        possible_actions.remove(tt_move)
+        possible_actions.insert(0, tt_move)
+
+    try:
+        for action in possible_actions:
+            board.apply_action(action)
+            # maximizing = (board.turn_color == agent_colour)
+            try:
+                curr_score = min_max_algo_with_time(
+                    self,
+                    False, 
+                    board, 
+                    depth-1, 
+                    alpha, 
+                    beta, 
+                    start_time=start_time,
+                    time_limit=time_limit
+                ) 
+            except TimeoutError:
+                board.undo_action()
+                raise
+            
+            board.undo_action()
+
+            if curr_score > best_score:
+                best_score = curr_score
+                best_action = action
+            alpha = max(alpha, best_score)
+
+    except TimeoutError:
+        return None, None
+             
+    return best_score, best_action
+
+def min_max_algo_with_time(
+    self, 
+    maximizing: bool, 
+    board: Board, 
+    depth: int, 
+    alpha: float, 
+    beta:float,
+    start_time,
+    time_limit: float
+) -> int:
+    if (time.time() - start_time) > time_limit:
+        raise TimeoutError()
+    
+    return min_max_algo(self, maximizing, board, depth, alpha, beta)

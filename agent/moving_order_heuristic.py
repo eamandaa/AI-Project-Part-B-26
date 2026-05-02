@@ -132,7 +132,7 @@ def score_push_off_board_risk(
             if not board._is_within_bounds(behind_r, behind_c):
                 break
             
-            behind = Coord(behind_c, behind_r)
+            behind = Coord(behind_r, behind_c)
             if behind not in enemy_coord:
                 continue
 
@@ -479,7 +479,7 @@ def score_moving_order(
 
     return score
             
-def iterative_deepening(
+def iterative_deepening_place(
     board: Board,
     agent_colour: PlayerColor,
     empty_cells: list[Coord],
