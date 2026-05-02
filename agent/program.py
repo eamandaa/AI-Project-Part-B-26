@@ -75,11 +75,11 @@ class Agent:
 
         # During placement phase (first 8 turns total, 4 per player)
         if self._turn_count < 4: 
-            placements_remaining = 4 - self._turn_count
+            placements_remaining = 2   #4 - self._turn_count
             print(f"remaining placement count = {placements_remaining}, colour = {self._color}")
             match self._color:
                 case PlayerColor.RED:
-                    effective_max_depth = placements_remaining * 2 
+                    effective_max_depth = placements_remaining * 2 - 1
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
                     action =iterative_deepening_place(
                         self._board, 
