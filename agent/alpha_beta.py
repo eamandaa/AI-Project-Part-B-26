@@ -5,7 +5,7 @@ from referee.game import Board
 import math
 from .zobrist_hashing import compute_hash, ScoreFlag
 import time 
-
+from referee.game import BOARD_N
 
 def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     best_action = None
@@ -424,11 +424,10 @@ def manhanttan_distance(
     """Calculate the distance of the coordinates using Manhattan distance"""
     return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
-def _potential_to_be_eaten(
+def _evaluate_eat(
     opponents_stacks:dict[tuple[int, int], int],
     curr_coord: Coord,
     curr_cell_state: CellState,
-    board: Board
 ) -> int:
     """
     Evaluate how likely the agent could eat the opponents, and 
@@ -450,11 +449,13 @@ def _potential_to_be_eaten(
             continue
 
         current_eat_score = 0
+        
+        height_difference = abs(curr_cell_height - opponent_height)
 
         if curr_cell_height >= opponent_height:
-            current_eat_score += opponent_height
+            current_eat_score += height_difference
         else:
-            current_eat_score -= curr_cell_height
+            current_eat_score -= height_difference
 
         # more important 
         if distance <= 2:
@@ -467,8 +468,42 @@ def _potential_to_be_eaten(
 
     return eat_score
 
+def evaluate_cascade_off_board(
+    opponents_stacks:dict[tuple[int, int], int],
+    curr_coord: Coord,
+    curr_cell_state: CellState,
+    board: Board
+)-> int:
     """
+    On the given position, how likely you are being pushed off the board
+    and how likely you can push the enemy off the board
+    """
+    cascade_score = 0
+    curr_cell_height = curr_cell_state.height
 
+    distance_curr_cord_r_to_edge = min(curr_coord.r, BOARD_N - curr_coord.r)
+    distance_curr_cord_c_to_edge = min(curr_coord.c, BOARD_N - curr_coord.c)
+    min_distance_curr_cord = min(distance_curr_cord_c_to_edge, distance_curr_cord_r_to_edge)
+
+    for (opponent_r, opponent_c), opponent_height in opponents_stacks.items():
+
+        # cascade can only happen in same row or same column
+        if opponent_r != curr_coord.r and opponent_c != curr_coord.c:
+            continue
+        
+        distance_opponent_r_to_edge = min(opponent_r, BOARD_N - opponent_r)
+        distance_opponent_c_to_edge = min(opponent_c, BOARD_N - opponent_c)
+
+        min_distance_opponent = min(distance_opponent_c_to_edge, distance_opponent_r_to_edge)
+
+    return 0
+
+
+
+
+
+
+""""
     #In case of game over
     if board.game_over:
         winner = board.winner_color
