@@ -328,7 +328,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     # For endgame preperation
     endgame = 0
-    if len(opp_positions) == 1 and len(agent_positions) > 0:
+    if len(opp_positions) <= 2 and len(agent_positions) > 0:
         (opp_r, opp_c), opp_h = next(iter(opp_positions.items()))
 
         min_dist = math.inf #calculate which of our token is the cloest to the enemy token
@@ -407,7 +407,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score -= 9 * (agent_threat - opp_threat)
     score += 10 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
-    #score += 2 * ( agent_cascade_push - opp_cascade_push )
+    score += 2 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
 
     return score
