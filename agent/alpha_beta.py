@@ -182,7 +182,7 @@ def heuristic_func(self,board,agent_color) -> int:
         r,c = coord.r , coord.c
         h = cell.height
         is_agent = (cell.color == agent_color)
-
+        #track total height, number of tokens, and largest token height i have and the opponent
         if is_agent:
             agent_positions[(r,c)] = h
             agent_total += h
@@ -196,6 +196,7 @@ def heuristic_func(self,board,agent_color) -> int:
             if h > opp_largest:
                 opp_largest = h
 
+        #scoring for the edges
         edge_dist = min(r, 7-r, c,7-c)
         if edge_dist == 0:
             if is_agent:
@@ -208,6 +209,7 @@ def heuristic_func(self,board,agent_color) -> int:
             else:
                 opp_edge += 2 * h
 
+    #Eat calculations including 3 and 4 and 
     for (r,c), h in agent_positions.items():
         moves_count = 0
         threatened = False
@@ -216,25 +218,26 @@ def heuristic_func(self,board,agent_color) -> int:
             if not (0 <= new_r <= 7 and 0 <= new_c <= 7 ):
                 continue
 
-            if (new_r, new_c) in agent_positions:
+            if (new_r, new_c) in agent_positions: #merging friendly token
                 moves_count += 1
-            elif (new_r , new_c) in opp_positions:
+            elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
-                    moves_count += 2
-                    agent_eat_bonus += opp_h * 10
-                    agent_eat += opp_h
+                    moves_count += 1
+                    agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
+                    agent_eat += opp_h #score for just potential eating
 
                 if opp_h >= h:
-                    threatened = True
+                    threatened = True #gonna be eaten by enemy
+
             else:
-                moves_count += 1
-        if moves_count<= 1:
-            agent_trapped += 1
+                moves_count += 1 #move to empty cell
+        if moves_count <= 1: 
+            agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
         if threatened:
-            agent_threat += h
+            agent_threat += h 
             
-        #Cascade calculation
+        #Cascade calculation, missing checking my own token if i cascade in the range
         if h >= 2:
             for d in CARDINAL_DIRECTIONS:
                 reach = h
@@ -244,7 +247,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     new_r = r + (d.r * step)
                     new_c = c + (d.c * step)
                     if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
-                        agent_cascade_self_loss += (reach - step + 1)
+                        agent_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
                         break
                     if (new_r, new_c) in opp_positions:
                         enemy_position = step
@@ -259,13 +262,12 @@ def heuristic_func(self,board,agent_color) -> int:
                     final_c = enemy_c + d.c * push_steps
 
                     if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                        agent_cascade_kill += enemy_height
-                        agent_cascade_push += enemy_height 
+                        agent_cascade_kill += enemy_height #push the enemy OUT of the board
                     else:
                         before_edge = min(enemy_r, 7 - enemy_r, enemy_c, 7 - enemy_c)
                         after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
                         if after_edge < before_edge:
-                            agent_cascade_push += enemy_height 
+                            agent_cascade_push += enemy_height #push the enemy TOWARDS THE EDGES
 
     for (r,c), h in opp_positions.items():
         moves_count = 0
@@ -280,7 +282,7 @@ def heuristic_func(self,board,agent_color) -> int:
             elif (new_r , new_c) in agent_positions:
                 agent_h = agent_positions[(new_r, new_c)]
                 if h >= agent_h:
-                    moves_count += 2
+                    moves_count += 1
                     opp_eat_bonus += agent_h * 10
                     opp_eat += agent_h
 
@@ -319,7 +321,6 @@ def heuristic_func(self,board,agent_color) -> int:
 
                     if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                         opp_cascade_kill += enemy_height
-                        opp_cascade_push += enemy_height 
                     else:
                         before_edge = min(enemy_r, 7 - enemy_r, enemy_c, 7 - enemy_c)
                         after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
@@ -327,10 +328,11 @@ def heuristic_func(self,board,agent_color) -> int:
                             opp_cascade_push += enemy_height 
 
     # For endgame preperation
+    #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
     endgame = 0
-    agent_sum = sum(agent_positions.values())
-    opp_sum = sum(opp_positions.values())
-    if len(opp_positions) <= 2 and (agent_sum > opp_sum):
+    agent_sum = sum(agent_positions.values()) #total height for agent
+    opp_sum = sum(opp_positions.values()) #total height for opp
+    if len(opp_positions) <= 2 and (agent_sum > opp_sum): #condition for end game
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
            #End game heuristic
@@ -347,13 +349,13 @@ def heuristic_func(self,board,agent_color) -> int:
                 nc = opp_c + d.c
 
                 if not (0 <= nr <= 7 and 0 <= nc <= 7):
-                    blocked_sides += 1
+                    blocked_sides += 1 #check if opponent is in the edge 
                     continue
 
                 if (nr, nc) in agent_positions:
-                    blocked_sides += 1
+                    blocked_sides += 1 #check if my agent is blocking the opponent
                 else:
-                    free_sides += 1
+                    free_sides += 1 #if d is empty cell
 
             # Count hunters and distance pressure
             for (r, c), h in agent_positions.items():
@@ -366,17 +368,17 @@ def heuristic_func(self,board,agent_color) -> int:
                     second_closest_dist = dist
 
                 if dist == 1 and h >= opp_h:
-                    hunters_adjacent += 1
+                    hunters_adjacent += 1 #potential eat immidiately without movement
 
                 if dist <= 3 and h >= opp_h:
-                    stronger_hunters_near += 1
+                    stronger_hunters_near += 1 #potential eat but require movement
 
                 if h < opp_h and dist <= 2:
-                    endgame -= 15
+                    endgame -= 15 #if we will be eaten instead
 
     
             if closest_dist < math.inf: #how close is my token to enemy
-                endgame += max(0, 8 - closest_dist) * 20
+                endgame += max(0, 8 - closest_dist) * 20 #8 bcs we have 8 row n column
 
             if second_closest_dist < math.inf: #same for the 2nd token
                 endgame += max(0, 8 - second_closest_dist) * 8
@@ -388,6 +390,7 @@ def heuristic_func(self,board,agent_color) -> int:
             # Reward actual capture pressure
             endgame += hunters_adjacent * 100
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
+            endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
 
     score = 0
     score += 8 * (agent_largest - opp_largest)
