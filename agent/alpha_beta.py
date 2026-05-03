@@ -382,8 +382,8 @@ def heuristic_func(self,board,agent_color) -> int:
                 endgame += max(0, 8 - second_closest_dist) * 8
 
             # Reward trapping
-            endgame += blocked_sides * 35
-            endgame -= free_sides * 8
+            endgame += blocked_sides * 40
+            endgame -= free_sides * 15
 
             # Reward actual capture pressure
             endgame += hunters_adjacent * 100
