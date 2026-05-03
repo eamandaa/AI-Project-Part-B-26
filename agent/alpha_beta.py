@@ -333,70 +333,61 @@ def heuristic_func(self,board,agent_color) -> int:
     if len(opp_positions) <= 2 and (agent_sum > opp_sum):
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
-            min_dist = math.inf #calculate which of our token is the cloest to the enemy token
-            second_min_dist = math.inf
-            blocked_sides = 0
+           #End game heuristic
+            closest_dist = math.inf
+            second_closest_dist = math.inf
+            hunters_adjacent = 0
+            stronger_hunters_near = 0
+            blocked_sides = 0 #trapping enemy by how many is it blocks
+            free_sides = 0 #how many sides are free
 
-            if opp_r == 0:
-                blocked_sides += 1
-            if opp_r == 7:
-                blocked_sides += 1
-            if opp_c == 0:
-                blocked_sides += 1
-            if opp_c == 7:
-                blocked_sides += 1
-
+            # Count blocked escape squares around enemy
             for d in CARDINAL_DIRECTIONS:
-                nr, nc = opp_r + d.r, opp_c + d.c
+                nr = opp_r + d.r
+                nc = opp_c + d.c
+
                 if not (0 <= nr <= 7 and 0 <= nc <= 7):
+                    blocked_sides += 1
                     continue
+
                 if (nr, nc) in agent_positions:
                     blocked_sides += 1
+                else:
+                    free_sides += 1
 
+            # Count hunters and distance pressure
             for (r, c), h in agent_positions.items():
                 dist = abs(r - opp_r) + abs(c - opp_c)
 
-                if dist < min_dist:
-                    second_min_dist = min_dist
-                    min_dist = dist
-                elif dist < second_min_dist:
-                    second_min_dist = dist
+                if dist < closest_dist:
+                    second_closest_dist = closest_dist
+                    closest_dist = dist
+                elif dist < second_closest_dist:
+                    second_closest_dist = dist
 
                 if dist == 1 and h >= opp_h:
-                    endgame += 80
+                    hunters_adjacent += 1
 
-                if h >= 2:
-                    for d in CARDINAL_DIRECTIONS:
-                        aligned = False
-                        if d.r != 0:
-                            aligned = (c == opp_c and ((d.r == 1 and opp_r > r) or (d.r == -1 and opp_r < r)))
-                        else:
-                            aligned = (r == opp_r and ((d.c == 1 and opp_c > c) or (d.c == -1 and opp_c < c)))
+                if dist <= 3 and h >= opp_h:
+                    stronger_hunters_near += 1
+
+                if h < opp_h and dist <= 2:
+                    endgame -= 15
+
     
-                        if not aligned:
-                            continue
+            if closest_dist < math.inf: #how close is my token to enemy
+                endgame += max(0, 8 - closest_dist) * 20
 
-                        line_dist = abs(r - opp_r) + abs(c - opp_c)
-                        if line_dist > h:
-                            continue
+            if second_closest_dist < math.inf: #same for the 2nd token
+                endgame += max(0, 8 - second_closest_dist) * 8
 
-                        push_steps = h - line_dist
-                        final_r = opp_r + d.r * push_steps
-                        final_c = opp_c + d.c * push_steps
+            # Reward trapping
+            endgame += blocked_sides * 35
+            endgame -= free_sides * 8
 
-                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                            endgame += 50
-                        else:
-                            before_edge = min(opp_r, 7 - opp_r, opp_c, 7 - opp_c)
-                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                            if after_edge < before_edge:
-                                endgame += 20
-
-            if min_dist < math.inf:
-                endgame += max(0, 8 - min_dist) * 10
-            if second_min_dist < math.inf:
-                endgame += max(0, 8 - second_min_dist) * 4
-            endgame += blocked_sides * 12
+            # Reward actual capture pressure
+            endgame += hunters_adjacent * 100
+            endgame += stronger_hunters_near * 25
 
     score = 0
     score += 8 * (agent_largest - opp_largest)
@@ -404,12 +395,12 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 15 * (agent_stacks - opp_stacks)
     score -= 7 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
-    score += 20 * (agent_eat - opp_eat ) #40
-    score += 10 * (agent_eat_bonus- opp_eat_bonus) 
+    score += 40 * (agent_eat - opp_eat ) #40
+    #score += 10 * (agent_eat_bonus- opp_eat_bonus) 
     score -= 9 * (agent_threat - opp_threat)
     score += 10 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
-    #score += 2 * ( agent_cascade_push - opp_cascade_push )
+    score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
 
     return score
