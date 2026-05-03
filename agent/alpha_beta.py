@@ -406,7 +406,7 @@ def heuristic_func(self,board,agent_color) -> int:
     return score
 
 def manhanttan_distance(
-    coord_one: Coord,
+    coord_one: Coord, 
     coord_two: Coord
 ) -> int:
     """Calculate the distance of the coordinates using Manhattan distance"""
@@ -455,7 +455,7 @@ def all_legal_actions(self,board) -> list[Action]:
 def iterative_deepening_play(
     self,
     board: Board,
-    max_depth: int = 8,
+    max_depth: int = 4,
     time_limit: float = 2.5
 ) -> Action:
     best_action = None
