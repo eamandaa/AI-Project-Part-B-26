@@ -212,7 +212,6 @@ def heuristic_func(self,board,agent_color) -> int:
     #Eat calculations including 3 and 4 and 
     for (r,c), h in agent_positions.items():
         moves_count = 0
-        threatened = False
         for d in CARDINAL_DIRECTIONS:
             new_r , new_c = r + d.r , c + d.c 
             if not (0 <= new_r <= 7 and 0 <= new_c <= 7 ):
@@ -228,14 +227,13 @@ def heuristic_func(self,board,agent_color) -> int:
                     agent_eat += opp_h #score for just potential eating
 
                 if opp_h >= h:
-                    threatened = True #gonna be eaten by enemy
+                    agent_threat += h #gonna be eaten by enemy
 
             else:
                 moves_count += 1 #move to empty cell
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
-        if threatened:
-            agent_threat += h 
+
             
         #Cascade calculation, missing checking my own token if i cascade in the range
         if h >= 2:
@@ -257,7 +255,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 if enemy_position is not None:
                     enemy_r = r + d.r * enemy_position
                     enemy_c = c + d.c * enemy_position
-                    push_steps = reach - enemy_position
+                    push_steps = reach - enemy_position + 1 #+ 1 because it technically gets pushed by the height
                     final_r = enemy_r + d.r * push_steps
                     final_c = enemy_c + d.c * push_steps
 
@@ -271,7 +269,6 @@ def heuristic_func(self,board,agent_color) -> int:
 
     for (r,c), h in opp_positions.items():
         moves_count = 0
-        threatened = False
         for d in CARDINAL_DIRECTIONS:
             new_r , new_c = r + d.r , c  + d.c 
             if not (0 <= new_r <= 7 and 0 <= new_c <= 7 ):
@@ -287,13 +284,12 @@ def heuristic_func(self,board,agent_color) -> int:
                     opp_eat += agent_h
 
                 if agent_h >= h:
-                    threatened = True
+                    opp_threat += h
             else:
                 moves_count += 1
         if moves_count<= 1:
             opp_trapped += 1
-        if threatened:
-            opp_threat += h
+            
             
         #Cascade calculation
         if h >= 2:
@@ -315,7 +311,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 if enemy_position is not None:
                     enemy_r = r + d.r * enemy_position
                     enemy_c = c + d.c * enemy_position
-                    push_steps = reach - enemy_position
+                    push_steps = reach - enemy_position + 1
                     final_r = enemy_r + d.r * push_steps
                     final_c = enemy_c + d.c * push_steps
 
@@ -583,72 +579,31 @@ def action_order_score(board, action):
 
     if isinstance(action, CascadeAction):
         coord = action.coord
+        d = action.direction
         stack = board._state[coord]
+        score = 1000 + stack.height * 10
 
-        if not stack.is_empty:
-            return 1000 + stack.height
+        for step in range(1, stack.height + 1):
+            nr = coord.r + d.r * step
+            nc = coord.c + d.c * step
 
-        return 1000
+            if not (0 <= nr <= 7 and 0 <= nc <= 7):
+                break
+
+            check = Coord(nr, nc)
+            cell = board._state[check]
+
+            if not cell.is_empty:
+                if cell.color != board.turn_color:
+                    score += 300 * cell.height #an enemy is in our cascade, might be push to the edges so reward some score
+                    push_steps = stack.height - step + 1
+                    final_r = nr + d.r * push_steps
+                    final_c = nc + d.c * push_steps
+
+                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                        score += 5000 + 500 * cell.height #push out of bounds so extra score
+
+        return score
 
     return 0
 
-"""
-#End game heuristic
-        closest_dist = math.inf
-        second_closest_dist = math.inf
-        hunters_adjacent = 0
-        stronger_hunters_near = 0
-        blocked_sides = 0 #trapping enemy by how many is it blocks
-        free_sides = 0 #how many sides are free
-
-        # Count blocked escape squares around enemy
-        for d in CARDINAL_DIRECTIONS:
-            nr = opp_r + d.r
-            nc = opp_c + d.c
-
-            if not (0 <= nr <= 7 and 0 <= nc <= 7):
-                blocked_sides += 1
-                continue
-
-            if (nr, nc) in agent_positions:
-                blocked_sides += 1
-            else:
-                free_sides += 1
-
-        # Count hunters and distance pressure
-        for (r, c), h in agent_positions.items():
-            dist = abs(r - opp_r) + abs(c - opp_c)
-
-            if dist < closest_dist:
-                second_closest_dist = closest_dist
-                closest_dist = dist
-            elif dist < second_closest_dist:
-                second_closest_dist = dist
-
-            if dist == 1 and h >= opp_h:
-                hunters_adjacent += 1
-
-            if dist <= 3 and h >= opp_h:
-                stronger_hunters_near += 1
-
-            if h < opp_h and dist <= 2:
-                endgame -= 15
-
-   
-        if closest_dist < math.inf: #how close is my token to enemy
-            endgame += max(0, 8 - closest_dist) * 20
-
-        if second_closest_dist < math.inf: #same for the 2nd token
-            endgame += max(0, 8 - second_closest_dist) * 8
-
-        # Reward trapping
-        endgame += blocked_sides * 35
-        endgame -= free_sides * 8
-
-        # Reward actual capture pressure
-        endgame += hunters_adjacent * 100
-        endgame += stronger_hunters_near * 25
-
-
-
-"""
