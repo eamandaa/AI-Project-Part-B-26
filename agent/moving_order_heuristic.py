@@ -500,8 +500,9 @@ def iterative_deepening_place(
             distance_heatmap, transposition_table, start_time=start, 
             time_limit=time_limit
         )
-        if action is not None:
-            best_action = action
+        if action is None:
+            break
+        best_action = action
         
         if time.time() - start > time_limit:
             print(f"Timed out at depth {depth}, using depth {depth-1} result")
@@ -571,8 +572,9 @@ def minimax_root(
                 best_action = action
             alpha = max(alpha, best_score)
 
+    # Timeout before searching the whole level 
     except TimeoutError:
-        return best_score, best_action
+        return None, None 
              
     return best_score, best_action
 
