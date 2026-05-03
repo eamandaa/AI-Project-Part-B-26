@@ -234,38 +234,44 @@ def heuristic_func(self,board,agent_color) -> int:
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
-            
+        #Cascade if u wanna check ur friendly token might break bcs of the for loop break    
         #Cascade calculation, missing checking my own token if i cascade in the range
         if h >= 2:
             for d in CARDINAL_DIRECTIONS:
                 reach = h
-                enemy_position = None
-                enemy_height = 0
                 for step in range (1, reach +1):
                     new_r = r + (d.r * step)
                     new_c = c + (d.c * step)
                     if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
                         agent_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
                         break
+
+                    push_steps = reach - step + 1
+                    final_r = new_r + d.r * push_steps
+                    final_c = new_c + d.c * push_steps
+
                     if (new_r, new_c) in opp_positions:
-                        enemy_position = step
+                       
                         enemy_height = opp_positions[(new_r,new_c)]
-                        break
+                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                            agent_cascade_kill += enemy_height
+                        else:
+                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
-                if enemy_position is not None:
-                    enemy_r = r + d.r * enemy_position
-                    enemy_c = c + d.c * enemy_position
-                    push_steps = reach - enemy_position + 1 #+ 1 because it technically gets pushed by the height
-                    final_r = enemy_r + d.r * push_steps
-                    final_c = enemy_c + d.c * push_steps
+                            if after_edge < before_edge:
+                                agent_cascade_push += enemy_height
 
-                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                        agent_cascade_kill += enemy_height #push the enemy OUT of the board
-                    else:
-                        before_edge = min(enemy_r, 7 - enemy_r, enemy_c, 7 - enemy_c)
-                        after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                        if after_edge < before_edge:
-                            agent_cascade_push += enemy_height #push the enemy TOWARDS THE EDGES
+                    elif (new_r, new_c) in agent_positions:
+                        own_height = agent_positions[(new_r, new_c)]
+
+                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                            agent_cascade_self_loss += own_height #losing our own agent
+                        else:
+                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+                            if after_edge < before_edge:
+                                agent_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
 
     for (r,c), h in opp_positions.items():
         moves_count = 0
@@ -295,33 +301,39 @@ def heuristic_func(self,board,agent_color) -> int:
         if h >= 2:
             for d in CARDINAL_DIRECTIONS:
                 reach = h
-                enemy_position = None
-                enemy_height = 0
                 for step in range (1, reach +1):
                     new_r = r + (d.r * step)
                     new_c = c + (d.c * step)
                     if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
-                        opp_cascade_self_loss += (reach - step + 1)
+                        opp_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
                         break
+
+                    push_steps = reach - step + 1
+                    final_r = new_r + d.r * push_steps
+                    final_c = new_c + d.c * push_steps
+
                     if (new_r, new_c) in agent_positions:
-                        enemy_position = step
+                       
                         enemy_height = agent_positions[(new_r,new_c)]
-                        break
+                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                            opp_cascade_kill += enemy_height
+                        else:
+                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
-                if enemy_position is not None:
-                    enemy_r = r + d.r * enemy_position
-                    enemy_c = c + d.c * enemy_position
-                    push_steps = reach - enemy_position + 1
-                    final_r = enemy_r + d.r * push_steps
-                    final_c = enemy_c + d.c * push_steps
+                            if after_edge < before_edge:
+                                opp_cascade_push += enemy_height
 
-                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                        opp_cascade_kill += enemy_height
-                    else:
-                        before_edge = min(enemy_r, 7 - enemy_r, enemy_c, 7 - enemy_c)
-                        after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                        if after_edge < before_edge:
-                            opp_cascade_push += enemy_height 
+                    elif (new_r, new_c) in opp_positions:
+                        own_height = opp_positions[(new_r, new_c)]
+
+                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                            opp_cascade_self_loss += own_height #losing our own agent
+                        else:
+                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+                            if after_edge < before_edge:
+                                opp_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
 
     # For endgame preperation
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
@@ -578,10 +590,12 @@ def action_order_score(board, action):
         return 10000
 
     if isinstance(action, CascadeAction):
+        
         coord = action.coord
         d = action.direction
         stack = board._state[coord]
         score = 1000 + stack.height * 10
+        return score
 
         for step in range(1, stack.height + 1):
             nr = coord.r + d.r * step
