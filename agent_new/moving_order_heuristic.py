@@ -296,7 +296,7 @@ def choose_best_action_during_placement_with_move_order(
     best_action = None
     best_score = float("-inf")
 
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells)
+    possible_actions = all_legal_actions_during_pacement(board, agent_colour, empty_cells)
 
     for action in possible_actions:
         board.apply_action(action)
@@ -320,8 +320,11 @@ def choose_best_action_during_placement_with_move_order(
              
     return best_action
 
+
+
 def all_legal_actions_during_pacement(
     board: Board,
+    agent_colour: PlayerColor,
     empty_cells: list[Coord],
 ) -> list[Action]:
     """
@@ -330,23 +333,19 @@ def all_legal_actions_during_pacement(
     """
     place_actions = {}
 
-    current_colour = board.turn_color
-
     for coord in empty_cells:
-        if board[coord] is not None:
-            continue
-
         place = PlaceAction(coord)
+        applied = False
         try:
             board.apply_action(place)
-        except IllegalActionException:
-            continue
-
-        try:
-            place_score = score_moving_order(board, coord, current_colour)
+            applied = True
+            place_score = score_moving_order(board, coord, agent_colour)
             place_actions[place] = place_score
+        except IllegalActionException:
+            pass
         finally:
-            board.undo_action()  
+            if applied:
+                board.undo_action()  
 
     sorted_placement_score = sorted(place_actions.items(),key = lambda x : x[1], reverse = True)
 
@@ -389,7 +388,7 @@ def min_max_algo(
         return value
     
     # generate move 
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells)
+    possible_actions = all_legal_actions_during_pacement(board, my_colour, empty_cells)
 
     # let tt be the first one, as it is prove better than heuristic guess
     if tt_move is not None and tt_move in possible_actions:
@@ -397,7 +396,6 @@ def min_max_algo(
         possible_actions.insert(0, tt_move)
 
     alpha_original = alpha
-    beta_original = beta
     best_move = None
 
     if maximizing:
@@ -428,10 +426,10 @@ def min_max_algo(
             if alpha >= beta:
                 break
 
-    if best_score >= beta_original:
-        score_flag = ScoreFlag.LOWER_BOUND
-    elif best_score <= alpha_original:
+    if best_score <= alpha_original:
         score_flag = ScoreFlag.UPPER_BOUND
+    elif best_score >= beta:
+        score_flag = ScoreFlag.LOWER_BOUND
     else:
         score_flag = ScoreFlag.EXACT
 
@@ -499,10 +497,9 @@ def iterative_deepening_place(
             distance_heatmap, transposition_table, start_time=start, 
             time_limit=time_limit
         )
-        if action is None:
-            break
-        
-        best_action = action
+
+        if action is not None:
+            best_action = action
         
         if time.time() - start > time_limit:
             print(f"Timed out at depth {depth}, using depth {depth-1} result")
@@ -530,7 +527,7 @@ def minimax_root(
     alpha = float("-inf")
     beta = float("inf")
 
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells)
+    possible_actions = all_legal_actions_during_pacement(board, agent_colour, empty_cells)
 
     hash_key = compute_hash(board)
 
@@ -546,10 +543,10 @@ def minimax_root(
     try:
         for action in possible_actions:
             board.apply_action(action)
-            maximizing = (board.turn_color == agent_colour)
+            # maximizing = (board.turn_color == agent_colour)
             try:
                 curr_score = min_max_algo_with_time(
-                    maximizing, 
+                    False, 
                     board, 
                     depth-1, 
                     alpha, 
@@ -620,7 +617,7 @@ def min_max_algo_with_time(
         return value
     
     # generate move 
-    possible_actions = all_legal_actions_during_pacement(board,empty_cells)
+    possible_actions = all_legal_actions_during_pacement(board, my_colour, empty_cells)
 
     # let tt be the first one, as it is prove better than heuristic guess
     if tt_move is not None and tt_move in possible_actions:
@@ -628,10 +625,7 @@ def min_max_algo_with_time(
         possible_actions.insert(0, tt_move)
 
     alpha_original = alpha
-    beta_original = beta
     best_move = None
-
-    maximizing_next = (board.turn_color == my_colour)
 
     if maximizing:
         best_score = float('-inf')
@@ -639,7 +633,7 @@ def min_max_algo_with_time(
         for each_action in possible_actions:
             board.apply_action(each_action)
             try:
-                new_score = min_max_algo_with_time(maximizing_next, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table, start_time, time_limit)
+                new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
             except TimeoutError:
                 board.undo_action()
                 raise
@@ -657,7 +651,7 @@ def min_max_algo_with_time(
         for each_action in possible_actions:
             board.apply_action(each_action)
             try:
-                new_score = min_max_algo_with_time(maximizing_next, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table, start_time, time_limit)
+                new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
             except TimeoutError:
                 board.undo_action()
                 raise
@@ -669,11 +663,11 @@ def min_max_algo_with_time(
             beta = min(beta, best_score)
             if alpha >= beta:
                 break
-    
-    if best_score >= beta_original:
-        score_flag = ScoreFlag.LOWER_BOUND
-    elif best_score <= alpha_original:
+
+    if best_score <= alpha_original:
         score_flag = ScoreFlag.UPPER_BOUND
+    elif best_score >= beta:
+        score_flag = ScoreFlag.LOWER_BOUND
     else:
         score_flag = ScoreFlag.EXACT
 

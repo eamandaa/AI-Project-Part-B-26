@@ -6,6 +6,7 @@ import math
 from .zobrist_hashing import compute_hash, ScoreFlag
 import time 
 from referee.game import BOARD_N
+from .play_evaluation_function import minimax_evluation_function
 
 def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     best_action = None
@@ -59,7 +60,7 @@ def min_max_algo(
     #Red always goes first -> Max
     # Reach terminal node
     if board.game_over or (not board._has_legal_actions()) or depth == 0:
-        value =  heuristic_func(self,board,self._color)
+        value =  minimax_evluation_function(board,self._color)
         self._tranposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
         return value
     
