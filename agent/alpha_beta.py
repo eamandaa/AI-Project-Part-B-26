@@ -457,12 +457,12 @@ def all_legal_actions(self,board) -> list[Action]:
 def iterative_deepening_play(
     self,
     board: Board,
-    max_depth: int = 6,
+    max_depth: int = 5,
     time_limit: float = 2.5
 ) -> Action:
     best_action = None
     start = time.time()
-
+ 
     for depth in range(1, max_depth + 1):
         score, action = minimax_root(self,
             board = board, depth=depth, start_time=start, 
@@ -526,11 +526,16 @@ def minimax_root(
                     start_time=start_time,
                     time_limit=time_limit
                 ) 
+                hash_score = compute_hash(board)
+                count_repetition = board._position_history.count(hash_score)
             except TimeoutError:
                 board.undo_action()
                 raise
             
             board.undo_action()
+            if count_repetition >= 2:
+                print("deduct score")
+                curr_score -= 15000
 
             if curr_score > best_score:
                 best_score = curr_score
