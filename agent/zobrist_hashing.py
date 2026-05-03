@@ -80,4 +80,3 @@ def compute_hash(
         h ^= TURN_KEY
 
     return h
-

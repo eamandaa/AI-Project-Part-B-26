@@ -376,9 +376,11 @@ def min_max_algo(
         if stored_depth >= depth:
             if score_flag == ScoreFlag.EXACT:
                 return stored_value
-            if score_flag == ScoreFlag.LOWER_BOUND and stored_value >= beta:
-                return stored_value
-            if score_flag == ScoreFlag.UPPER_BOUND and stored_value <= alpha:
+            if score_flag == ScoreFlag.LOWER_BOUND:
+                alpha = max(alpha, stored_value)
+            if score_flag == ScoreFlag.UPPER_BOUND: 
+                beta = min(beta, stored_value)
+            if alpha >= beta:
                 return stored_value
         tt_move = stored_best_move
 
@@ -607,9 +609,11 @@ def min_max_algo_with_time(
         if stored_depth >= depth:
             if score_flag == ScoreFlag.EXACT:
                 return stored_value
-            if score_flag == ScoreFlag.LOWER_BOUND and stored_value >= beta:
-                return stored_value
-            if score_flag == ScoreFlag.UPPER_BOUND and stored_value <= alpha:
+            if score_flag == ScoreFlag.LOWER_BOUND:
+                alpha = max(alpha, stored_value)
+            if score_flag == ScoreFlag.UPPER_BOUND: 
+                beta = min(beta, stored_value)
+            if alpha >= beta:
                 return stored_value
         tt_move = stored_best_move
 
@@ -638,6 +642,7 @@ def min_max_algo_with_time(
         
         for each_action in possible_actions:
             board.apply_action(each_action)
+            maximizing_next = (board.turn_color == my_colour)
             try:
                 new_score = min_max_algo_with_time(maximizing_next, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table, start_time, time_limit)
             except TimeoutError:
@@ -656,6 +661,7 @@ def min_max_algo_with_time(
     
         for each_action in possible_actions:
             board.apply_action(each_action)
+            maximizing_next = (board.turn_color == my_colour)
             try:
                 new_score = min_max_algo_with_time(maximizing_next, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table, start_time, time_limit)
             except TimeoutError:
