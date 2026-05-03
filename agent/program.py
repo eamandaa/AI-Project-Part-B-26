@@ -5,7 +5,7 @@ from referee.game import PlayerColor, Coord, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening
+from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening_place
 from .alpha_beta import choose_best_action 
 
 
@@ -80,7 +80,7 @@ class Agent:
                 case PlayerColor.RED:
                     effective_max_depth = placements_remaining * 2 
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
-                    action =iterative_deepening(
+                    action =iterative_deepening_place(
                         self._board, 
                         self._color,
                         self._cells['empty_cell'],
@@ -96,7 +96,7 @@ class Agent:
                 case PlayerColor.BLUE:
                     effective_max_depth = placements_remaining * 2 - 1
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
-                    action =iterative_deepening(
+                    action =iterative_deepening_place(
                         self._board, 
                         self._color,
                         self._cells['empty_cell'],
