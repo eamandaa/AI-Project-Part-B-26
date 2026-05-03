@@ -392,7 +392,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score = 0
     score += 8 * (agent_largest - opp_largest)
     score += 40 * (agent_total - opp_total)
-    score += 15 * (agent_stacks - opp_stacks)
+    score += 10 * (agent_stacks - opp_stacks)
     score -= 7 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
     score += 40 * (agent_eat - opp_eat ) #40
@@ -448,14 +448,16 @@ def all_legal_actions(self,board) -> list[Action]:
                 move_actions.append(move)
             except IllegalActionException:
                 pass
-    return eat_actions + cascade_actions + move_actions
+    actions = eat_actions + cascade_actions + move_actions
+    actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
+    return actions
 
 
 
 def iterative_deepening_play(
     self,
     board: Board,
-    max_depth: int = 4,
+    max_depth: int = 6,
     time_limit: float = 2.5
 ) -> Action:
     best_action = None
@@ -556,6 +558,31 @@ def min_max_algo_with_time(
     return min_max_algo(self, maximizing, board, depth, alpha, beta)
 
 
+
+def action_order_score(board, action):
+    if isinstance(action, EatAction):
+        coord = action.coord
+        d = action.direction
+        target = Coord(coord.r + d.r, coord.c + d.c)
+
+        victim = board._state[target]
+        attacker = board._state[coord]
+
+        if not victim.is_empty and not attacker.is_empty:
+            return 10000 + victim.height * 100 + attacker.height
+
+        return 10000
+
+    if isinstance(action, CascadeAction):
+        coord = action.coord
+        stack = board._state[coord]
+
+        if not stack.is_empty:
+            return 1000 + stack.height
+
+        return 1000
+
+    return 0
 
 """
 #End game heuristic

@@ -844,8 +844,8 @@ def all_legal_actions(self,board) -> list[Action]:
 def iterative_deepening_play(
     self,
     board: Board,
-    max_depth: int = 8,
-    time_limit: float = 2.5
+    max_depth: int = 4,
+    time_limit: float = 2
 ) -> Action:
     best_action = None
     start = time.time()
