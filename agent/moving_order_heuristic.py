@@ -333,7 +333,7 @@ def all_legal_actions_during_pacement(
     current_colour = board.turn_color
 
     for coord in empty_cells:
-        if board[coord] is not None:
+        if not board[coord].is_empty:
             continue
 
         place = PlaceAction(coord)
@@ -349,7 +349,6 @@ def all_legal_actions_during_pacement(
             board.undo_action()  
 
     sorted_placement_score = sorted(place_actions.items(),key = lambda x : x[1], reverse = True)
-
     return [action for action, _ in sorted_placement_score]
 
 def min_max_algo(
@@ -501,10 +500,8 @@ def iterative_deepening_place(
             distance_heatmap, transposition_table, start_time=start, 
             time_limit=time_limit
         )
-        if action is None:
-            break
-        
-        best_action = action
+        if action is not None:
+            best_action = action
         
         if time.time() - start > time_limit:
             print(f"Timed out at depth {depth}, using depth {depth-1} result")
@@ -575,7 +572,7 @@ def minimax_root(
             alpha = max(alpha, best_score)
 
     except TimeoutError:
-        return None, None
+        return best_score, best_action
              
     return best_score, best_action
 
