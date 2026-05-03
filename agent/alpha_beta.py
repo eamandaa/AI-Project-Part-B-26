@@ -387,7 +387,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
             # Reward actual capture pressure
             endgame += hunters_adjacent * 100
-            endgame += stronger_hunters_near * 25
+            endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
 
     score = 0
     score += 8 * (agent_largest - opp_largest)
@@ -396,11 +396,11 @@ def heuristic_func(self,board,agent_color) -> int:
     score -= 7 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
     score += 40 * (agent_eat - opp_eat ) #40
-    #score += 10 * (agent_eat_bonus- opp_eat_bonus) 
+    score += 2 * (agent_eat_bonus- opp_eat_bonus) 
     score -= 9 * (agent_threat - opp_threat)
     score += 10 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
-    score += 1 * ( agent_cascade_push - opp_cascade_push )
+    #score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
 
     return score
