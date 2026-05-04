@@ -156,7 +156,7 @@ class Agent:
 
         self._board.apply_action(action)
         self._cells = self._find_cells(self._board, self._color)
-        print(f"Cells for {self._color} = {self._cells}")
+        # print(f"Cells for {self._color} = {self._cells}")
 
 
    
