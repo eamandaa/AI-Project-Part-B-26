@@ -38,7 +38,7 @@ def main():
     num_draw = 0
     unknown = 0
 
-    total_round_game = 1
+    total_round_game = 100
 
     for i in range(total_round_game):
         result = run_game(args.agent_one, args.agent_two)
