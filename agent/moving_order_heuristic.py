@@ -500,13 +500,11 @@ def iterative_deepening_place(
             distance_heatmap, transposition_table, start_time=start, 
             time_limit=time_limit
         )
-        if action is None:
-            break
-        best_action = action
         
-        if time.time() - start > time_limit:
+        if action is None or time.time() - start > time_limit:
             print(f"Timed out at depth {depth}, using depth {depth-1} result")
             break
+        best_action = action
 
     return best_action
 
