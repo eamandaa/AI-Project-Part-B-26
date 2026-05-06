@@ -309,7 +309,7 @@ def heuristic_func(self,board,agent_color) -> int:
                         break
 
                     push_steps = reach - step + 1
-                    final_r = new_r + d.r * push_steps
+                    final_r = new_r + d.r * push_steps 
                     final_c = new_c + d.c * push_steps
 
                     if (new_r, new_c) in agent_positions:
@@ -411,7 +411,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score -= 9 * (agent_threat - opp_threat)
     score += 10 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
-    #score += 1 * ( agent_cascade_push - opp_cascade_push )
+    score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
 
     return score
