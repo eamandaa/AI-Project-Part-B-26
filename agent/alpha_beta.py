@@ -468,6 +468,7 @@ def all_legal_actions(self,board) -> list[Action]:
 def iterative_deepening_play(
     self,
     board: Board,
+    agent_colour: PlayerColor,
     max_depth: int = 5,
     time_limit: float = 2.5
 ) -> Action:
@@ -476,16 +477,15 @@ def iterative_deepening_play(
  
     for depth in range(1, max_depth + 1):
         score, action = minimax_root(self,
-            board = board, depth=depth, start_time=start, 
+            board = board, depth=depth, agent_colour = agent_colour, start_time=start, 
             time_limit=time_limit
         )
 
-        if action is not None:
-            best_action = action
-        
-        if time.time() - start > time_limit:
+        if action is None or time.time() - start > time_limit:
             print(f"Timed out at depth {depth}, using depth {depth-1} result")
             break
+        
+        best_action = action
 
     return best_action
 
@@ -493,6 +493,7 @@ def minimax_root(
     self,
     board: Board,
     depth: int,
+    agent_colour: PlayerColor,
     start_time: float,
     time_limit: float
 ) -> tuple[float, Action | None]:
@@ -525,15 +526,17 @@ def minimax_root(
     try:
         for action in possible_actions:
             board.apply_action(action)
-            # maximizing = (board.turn_color == agent_colour)
+            maximizing = (board.turn_color == agent_colour)
             try:
                 curr_score = min_max_algo_with_time(
                     self,
-                    False, 
+                    # changed this part 
+                    maximizing, 
                     board, 
                     depth-1, 
                     alpha, 
                     beta, 
+                    agent_colour,
                     start_time=start_time,
                     time_limit=time_limit
                 ) 
@@ -559,20 +562,106 @@ def minimax_root(
     return best_score, best_action
 
 def min_max_algo_with_time(
-    self, 
+    self,
     maximizing: bool, 
-    board: Board, 
-    depth: int, 
+    board: Board,
+    depth: int,
     alpha: float, 
-    beta:float,
+    beta: float, 
+    agent_colour: PlayerColor,
     start_time,
     time_limit: float
 ) -> int:
+    
     if (time.time() - start_time) > time_limit:
         raise TimeoutError()
     
-    return min_max_algo(self, maximizing, board, depth, alpha, beta)
+    # Create hash
+    hash_key = compute_hash(board)
+    tt_move = None
 
+    # check whether already visit this board state before 
+    if hash_key in self._tranposition_table:
+        stored_depth, stored_value, score_flag, stored_best_move = self._tranposition_table[hash_key]
+        if stored_depth >= depth:
+            if score_flag == ScoreFlag.EXACT:
+                return stored_value
+            if score_flag == ScoreFlag.LOWER_BOUND: 
+                alpha =  max(alpha,stored_value)
+            if score_flag == ScoreFlag.UPPER_BOUND:
+                beta = min(beta,stored_value)
+        if alpha >= beta:
+            return stored_value
+        
+        tt_move = stored_best_move
+
+    #Move, eat and cascade
+    #Red always goes first -> Max
+    if board.game_over or (not board._has_legal_actions()) or depth == 0:
+        value =  heuristic_func(self,board,self._color)
+        self._tranposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
+        return value
+    
+    possible_actions = all_legal_actions(self,board)
+
+    if tt_move is not None and tt_move in possible_actions:
+        possible_actions.remove(tt_move)
+        possible_actions.insert(0, tt_move)
+    
+    alpha_original = alpha
+    beta_original = beta
+    best_move = None
+    
+    if maximizing == True:
+        best_score = -math.inf
+        
+        for each_action in possible_actions:
+            board.apply_action(each_action)
+            maximizing_next = (board.turn_color == agent_colour)
+            try: 
+                new_score = min_max_algo_with_time(self, maximizing_next, board, depth - 1, alpha,
+                                                   beta,agent_colour, start_time, time_limit)
+            except TimeoutError:
+                board.undo_action()
+                raise
+            board.undo_action()
+            #print("DEPTH", depth, "ROOT ACTION", each_action, "SCORE", new_score)
+            if new_score > best_score:
+                best_score = new_score
+                best_move = each_action
+            alpha = max(alpha, best_score)
+            if alpha >= beta:
+                break
+    
+    else:
+        best_score = math.inf
+        
+        for each_action in possible_actions:
+            board.apply_action(each_action)
+            maximizing_next = (board.turn_color == agent_colour)
+            try: 
+                new_score = min_max_algo_with_time(self, maximizing_next, board, depth - 1, alpha,
+                                                   beta,agent_colour, start_time, time_limit)
+            except TimeoutError:
+                board.undo_action()
+                raise
+            board.undo_action()
+            if new_score < best_score:
+                best_score = new_score
+                best_move = each_action
+            beta = min(beta, best_score)
+            if alpha >= beta:
+                break 
+
+    if best_score >= beta_original:
+        score_flag = ScoreFlag.LOWER_BOUND
+    elif best_score <= alpha_original:
+        score_flag = ScoreFlag.UPPER_BOUND
+    else:
+        score_flag = ScoreFlag.EXACT
+
+    self._tranposition_table[hash_key] = (depth, best_score, score_flag, best_move)
+    return best_score
 
 
 def action_order_score(board, action):
