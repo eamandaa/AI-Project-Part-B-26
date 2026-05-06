@@ -338,7 +338,7 @@ def all_legal_actions_during_pacement(
 
         place = PlaceAction(coord)
         try:
-            board.apply_action(place)
+            cell = board.apply_action(place)
         except IllegalActionException:
             continue
 
