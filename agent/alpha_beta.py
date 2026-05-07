@@ -425,9 +425,9 @@ def manhanttan_distance(
 
 
 def all_legal_actions(self,board) -> list[Action]:
-    action_score = []
-
-    board_original_colour = board.turn_color
+    eat_actions = []
+    cascade_actions = []
+    move_actions = []
     for coord, cell in board._state.items():
         if cell.is_empty:
             continue
@@ -435,57 +435,33 @@ def all_legal_actions(self,board) -> list[Action]:
             continue
         for each_dir in CARDINAL_DIRECTIONS:
 
-            board_mutation = None
-
             #Eat
-            eat = EatAction(coord, each_dir)
             try:
-                board_mutation = board.apply_action(eat)
+                eat = EatAction(coord, each_dir)
+                board._resolve_eat_action(eat)
+                eat_actions.append(eat)
             except IllegalActionException:
                 pass
-
-            if board_mutation:
-                try: 
-                    if board_mutation:
-                        eat_score = action_order_score(board, board_mutation, board_original_colour)
-                        action_score.append((eat, eat_score))
-                finally:
-                    board.undo_action()
-                    board_mutation = None
 
             #Cascade
-            cascade = CascadeAction(coord,each_dir)
             try:
-                board_mutation = board.apply_action(cascade)
+                cascade = CascadeAction(coord,each_dir)
+                board._resolve_cascade_action(cascade)
+                cascade_actions.append(cascade)
+
             except IllegalActionException:
                 pass
-            
-            if board_mutation:
-                try: 
-                    cascade_score = action_order_score(board, board_mutation, board_original_colour)
-                    action_score.append((cascade, cascade_score))
-                finally:
-                    board.undo_action()
-                    board_mutation = None
 
             #Move
-            move = MoveAction(coord, each_dir)
             try:
-                board_mutation = board.apply_action(move)
+                move = MoveAction(coord, each_dir)
+                board._resolve_move_action(move)
+                move_actions.append(move)
             except IllegalActionException:
                 pass
-            
-            if board_mutation:
-                try: 
-                    move_score = action_order_score(board, board_mutation, board_original_colour)
-                    action_score.append((move, move_score))
-                finally:
-                    board.undo_action()
-                    board_mutation = None
-
-
-    action_score.sort(key=lambda x: x[1], reverse=True)
-    return [item[0] for item in action_score]
+    actions = eat_actions + cascade_actions + move_actions
+    actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
+    return actions
 
 # def all_legal_actions(self,board) -> list[Action]:
 #     eat_actions = []
@@ -724,80 +700,126 @@ def min_max_algo_with_time(
     self._tranposition_table[hash_key] = (depth, best_score, score_flag, best_move)
     return best_score
 
+def action_order_score(board, action):
+    if isinstance(action, EatAction):
+        coord = action.coord
+        d = action.direction
+        target = Coord(coord.r + d.r, coord.c + d.c)
 
-def action_order_score(
-    board: Board, 
-    board_mutation: BoardMutation,
-    original_colour: PlayerColor,
-):
-    pieces_lost_by_enemy = 0
-    pieces_lost_by_me = 0
+        victim = board._state[target]
+        attacker = board._state[coord]
 
-    score = 0
+        if not victim.is_empty and not attacker.is_empty:
+            return 10000 + victim.height * 100 + attacker.height
 
-    action = board_mutation.action
+        return 10000
 
-    for cell_mutation in board_mutation.cell_mutations:
-        # opponent get eaten / cascade push off the board
-        if cell_mutation.prev.color != original_colour and not cell_mutation.prev.is_empty and cell_mutation.next.is_empty:
-            pieces_lost_by_enemy += cell_mutation.prev.height
-        # our token fall off the board
-        elif cell_mutation.prev.color == original_colour and cell_mutation.next.is_empty:
-            pieces_lost_by_me += cell_mutation.prev.height
-
-        if isinstance(action, MoveAction):
-            if cell_mutation.next.height > cell_mutation.prev.height:
-                score += 50
-
-    score += (pieces_lost_by_enemy * 100)
-    score -= (pieces_lost_by_me * 50)
-
-    return  score
-
-
-    #     if isinstance()
-    # if isinstance(action, EatAction):
-    #     coord = action.coord
-    #     d = action.direction
-    #     target = Coord(coord.r + d.r, coord.c + d.c)
-
-    #     victim = board._state[target]
-    #     attacker = board._state[coord]
-
-    #     if not victim.is_empty and not attacker.is_empty:
-    #         return 10000 + victim.height * 100 + attacker.height
-
-    #     return 10000
-
-    # if isinstance(action, CascadeAction):
+    if isinstance(action, CascadeAction):
         
-    #     coord = action.coord
-    #     d = action.direction
-    #     stack = board._state[coord]
-    #     score = 1000 + stack.height * 10
-    #     return score
+        coord = action.coord
+        d = action.direction
+        stack = board._state[coord]
+        score = 1000 + stack.height * 10
+        return score
 
-    #     for step in range(1, stack.height + 1):
-    #         nr = coord.r + d.r * step
-    #         nc = coord.c + d.c * step
+        for step in range(1, stack.height + 1):
+            nr = coord.r + d.r * step
+            nc = coord.c + d.c * step
 
-    #         if not (0 <= nr <= 7 and 0 <= nc <= 7):
-    #             break
+            if not (0 <= nr <= 7 and 0 <= nc <= 7):
+                break
 
-    #         check = Coord(nr, nc)
-    #         cell = board._state[check]
+            check = Coord(nr, nc)
+            cell = board._state[check]
 
-    #         if not cell.is_empty:
-    #             if cell.color != board.turn_color:
-    #                 score += 300 * cell.height #an enemy is in our cascade, might be push to the edges so reward some score
-    #                 push_steps = stack.height - step + 1
-    #                 final_r = nr + d.r * push_steps
-    #                 final_c = nc + d.c * push_steps
+            if not cell.is_empty:
+                if cell.color != board.turn_color:
+                    score += 300 * cell.height #an enemy is in our cascade, might be push to the edges so reward some score
+                    push_steps = stack.height - step + 1
+                    final_r = nr + d.r * push_steps
+                    final_c = nc + d.c * push_steps
 
-    #                 if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-    #                     score += 5000 + 500 * cell.height #push out of bounds so extra score
+                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                        score += 5000 + 500 * cell.height #push out of bounds so extra score
 
-    #     return score
+        return score
 
-    # return 0
+    return 0
+
+
+# def action_order_score(
+#     board: Board, 
+#     board_mutation: BoardMutation,
+#     original_colour: PlayerColor,
+# ):
+#     pieces_lost_by_enemy = 0
+#     pieces_lost_by_me = 0
+
+#     score = 0
+
+#     # action = board_mutation.action
+
+#     # for cell_mutation in board_mutation.cell_mutations:
+#     #     # opponent get eaten / cascade push off the board
+#     #     if cell_mutation.prev.color != original_colour and not cell_mutation.prev.is_empty and cell_mutation.next.is_empty:
+#     #         pieces_lost_by_enemy += cell_mutation.prev.height
+#     #     # our token fall off the board
+#     #     elif cell_mutation.prev.color == original_colour and cell_mutation.next.is_empty:
+#     #         pieces_lost_by_me += cell_mutation.prev.height
+
+#     #     if isinstance(action, MoveAction):
+#     #         if cell_mutation.next.height > cell_mutation.prev.height:
+#     #             score += 50
+
+#     # score += (pieces_lost_by_enemy * 100)
+#     # score -= (pieces_lost_by_me * 50)
+
+#     # return  score
+
+
+#        # if isinstance()
+#     if isinstance(action, EatAction):
+#         coord = action.coord
+#         d = action.direction
+#         target = Coord(coord.r + d.r, coord.c + d.c)
+
+#         victim = board._state[target]
+#         attacker = board._state[coord]
+
+#         if not victim.is_empty and not attacker.is_empty:
+#             return 10000 + victim.height * 100 + attacker.height
+
+#         return 10000
+
+#     if isinstance(action, CascadeAction):
+        
+#         coord = action.coord
+#         d = action.direction
+#         stack = board._state[coord]
+#         score = 1000 + stack.height * 10
+#         return score
+
+#         for step in range(1, stack.height + 1):
+#             nr = coord.r + d.r * step
+#             nc = coord.c + d.c * step
+
+#             if not (0 <= nr <= 7 and 0 <= nc <= 7):
+#                 break
+
+#             check = Coord(nr, nc)
+#             cell = board._state[check]
+
+#             if not cell.is_empty:
+#                 if cell.color != board.turn_color:
+#                     score += 300 * cell.height #an enemy is in our cascade, might be push to the edges so reward some score
+#                     push_steps = stack.height - step + 1
+#                     final_r = nr + d.r * push_steps
+#                     final_c = nc + d.c * push_steps
+
+#                     if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+#                         score += 5000 + 500 * cell.height #push out of bounds so extra score
+
+#         return score
+
+#     return 0
 
