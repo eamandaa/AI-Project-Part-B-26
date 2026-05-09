@@ -75,18 +75,20 @@ class Agent:
 
         # During placement phase (first 8 turns total, 4 per player)
         if self._turn_count < 4: 
-            placements_remaining = 2   #4 - self._turn_count
+            placements_remaining = 4 - self._turn_count
             print(f"remaining placement count = {placements_remaining}, colour = {self._color}")
             match self._color:
                 case PlayerColor.RED:
-                    effective_max_depth = placements_remaining * 2 - 1
+                    effective_max_depth = placements_remaining * 2 
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
+                    print(f"board turn count = {self._board.turn_count}")
                     action =iterative_deepening_place(
                         self._board, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
                         self._tranposition_table,
+                        self._board.turn_count,
                         max_depth=effective_max_depth
                     )
                     if referee["time_remaining"] is not None:
@@ -97,12 +99,14 @@ class Agent:
                 case PlayerColor.BLUE:
                     effective_max_depth = placements_remaining * 2 - 1
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
+                    print(f"board turn count = {self._board.turn_count}")
                     action =iterative_deepening_place(
                         self._board, 
                         self._color,
                         self._cells['empty_cell'],
                         self._distance_heatmap,
                         self._tranposition_table,
+                        self._board.turn_count,
                         max_depth=effective_max_depth
                     )
                     if referee["time_remaining"] is not None:
