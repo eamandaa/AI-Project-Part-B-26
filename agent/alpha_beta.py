@@ -349,24 +349,24 @@ def heuristic_func(self,board,agent_color) -> int:
     agent_sum = sum(agent_positions.values()) #total height for agent
     opp_sum = sum(opp_positions.values()) #total height for opp
 
-    #For clearly winning situation, just eat
-    if agent_sum >= opp_sum + 5:
-        score -= 30 * len(opp_positions)
-        for (r, c), h in agent_positions.items():
-            for d in CARDINAL_DIRECTIONS:
-                nr = r + d.r
-                nc = c + d.c
+    #alinging and eat minus
+    # if agent_sum >= opp_sum + 5:
+    #     score -= 30 * len(opp_positions)
+    #     for (r, c), h in agent_positions.items():
+    #         for d in CARDINAL_DIRECTIONS:
+    #             nr = r + d.r
+    #             nc = c + d.c
 
-                if not (0 <= nr <= 7 and 0 <= nc <= 7):
-                    continue
+    #             if not (0 <= nr <= 7 and 0 <= nc <= 7):
+    #                 continue
 
-                if (nr, nc) in opp_positions:
-                    opp_h = opp_positions[(nr, nc)]
+    #             if (nr, nc) in opp_positions:
+    #                 opp_h = opp_positions[(nr, nc)]
 
-                    if h > opp_h:
-                        score += 15 * opp_h
-                    elif h == opp_h:
-                        score += 7 * opp_h
+    #                 if h > opp_h:
+    #                     score += 15 * opp_h
+    #                 elif h == opp_h:
+    #                     score += 7 * opp_h
     
     # to prevent draw, chase and eat more agressively
     if agent_stacks + opp_stacks <= 5:
@@ -482,11 +482,12 @@ def heuristic_func(self,board,agent_color) -> int:
         
 
 
-    play_turns = len(board._position_history)
-    if play_turns >= 120:
-        score += 75 * (agent_total - opp_total)
-    else:
-        score += 50 * (agent_total - opp_total)
+    play_turns = len(board._position_history) #N
+    if play_turns >= 220:
+        #score += 75 * (agent_total - opp_total)
+        score -= 30 * opp_total
+    #else:
+    score += 50 * (agent_total - opp_total)
 
     #Defensive mode
     # losing = (agent_total <= opp_total - 3)
@@ -696,14 +697,14 @@ def minimax_root(
                     start_time=start_time,
                     time_limit=time_limit
                 ) 
-                hash_score = compute_hash(board)
-                count_repetition = board._position_history.count(hash_score)
+                current_hash = board._board_hash()
+                count_repetition = board._position_history.count(current_hash) >= 2
             except TimeoutError:
                 board.undo_action()
                 raise
             
             board.undo_action()
-            if count_repetition >= 2:
+            if count_repetition:
                 print("deduct score\n sxff \n \sdv \n xew \n")
                 curr_score -= 150000
 
