@@ -230,7 +230,8 @@ def heuristic_func(self,board,agent_color) -> int:
                     moves_count += 1
                     agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
                     agent_eat += opp_h #score for just potential eating
-                    agent_safe_eat += opp_h
+                    if h > opp_h:
+                        agent_safe_eat += opp_h
 
                 if opp_h >= h:
                     agent_threat += h #gonna be eaten by enemy
@@ -294,7 +295,8 @@ def heuristic_func(self,board,agent_color) -> int:
                     moves_count += 1
                     opp_eat_bonus += agent_h * 10
                     opp_eat += agent_h
-                    opp_safe_eat += agent_h
+                    if h > opp_h:
+                        opp_safe_eat += agent_h
 
                 if agent_h >= h:
                     opp_threat += h
@@ -494,7 +496,8 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 5 * (agent_stacks - opp_stacks)
     score -= 3 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
-    score += 40 * (agent_eat - opp_eat ) #40
+    score += 30 * (agent_eat - opp_eat ) #40
+    score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
     score -= 9 * (agent_threat - opp_threat)
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
