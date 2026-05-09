@@ -351,6 +351,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #For clearly winning situation, just eat
     if agent_sum >= opp_sum + 5:
+        score -= 30 * len(opp_positions)
         for (r, c), h in agent_positions.items():
             for d in CARDINAL_DIRECTIONS:
                 nr = r + d.r
@@ -363,9 +364,9 @@ def heuristic_func(self,board,agent_color) -> int:
                     opp_h = opp_positions[(nr, nc)]
 
                     if h > opp_h:
-                        score += 120 * opp_h
+                        score += 15 * opp_h
                     elif h == opp_h:
-                        score += 40 * opp_h
+                        score += 7 * opp_h
     
     # to prevent draw, chase and eat more agressively
     if agent_stacks + opp_stacks <= 5:
@@ -381,6 +382,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
         if best_safe_dist < math.inf:
             endgame += max(0, 8 - best_safe_dist) * 35
+
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
@@ -477,6 +479,7 @@ def heuristic_func(self,board,agent_color) -> int:
             endgame += hunters_adjacent * 100
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
+        
 
 
     play_turns = len(board._position_history)
@@ -496,12 +499,13 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 5 * (agent_stacks - opp_stacks)
     score -= 3 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
-    score += 30 * (agent_eat - opp_eat ) #40
-    score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
+    score += 40 * (agent_eat - opp_eat ) #40
+    #score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
     score -= 9 * (agent_threat - opp_threat)
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
+    #score -= 30 * len(opp_positions)
     #score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
     # score += 70 * (agent_total - opp_total)
