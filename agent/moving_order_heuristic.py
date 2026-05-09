@@ -549,7 +549,7 @@ def minimax_root(
                     alpha, 
                     beta, 
                     my_colour=agent_colour,
-                    distance_heatmap=distance_heatmap,
+                    distance_heatmap=distance_heatmap, 
                     transposition_table = transposition_table,
                     turn_count = turn_count + 1,
                     start_time=start_time,
