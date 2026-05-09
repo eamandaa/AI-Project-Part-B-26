@@ -36,6 +36,8 @@ class Agent:
         self._distance_heatmap = compute_distance_heatmap()
         self._tranposition_table = {}
 
+        self._placement_start_time = None
+
         self.referee = referee
 
     def _find_cells(
@@ -74,17 +76,21 @@ class Agent:
         #print(cell.)
 
         # During placement phase (first 8 turns total, 4 per player)
+
         if self._turn_count < 4: 
-            placements_remaining = 2   #4 - self._turn_count
+            if self._board.turn_count == 0:
+                print("Hi i have set up time")
+                self._placement_start_time = referee["time_remaining"]
+            placements_remaining = 4 - self._turn_count
             print(f"remaining placement count = {placements_remaining}, colour = {self._color}")
             match self._color:
                 case PlayerColor.RED:
-                    effective_max_depth = placements_remaining * 2 - 1
+                    effective_max_depth = placements_remaining * 2
                     print(f"effective max depth = {effective_max_depth} for {self._color}")
                     action =iterative_deepening_place(
                         self._board, 
                         self._color,
-                        self._cells['empty_cell'],
+                        # self._cells['empty_cell'],
                         self._distance_heatmap,
                         self._tranposition_table,
                         max_depth=effective_max_depth
@@ -100,7 +106,7 @@ class Agent:
                     action =iterative_deepening_place(
                         self._board, 
                         self._color,
-                        self._cells['empty_cell'],
+                        # self._cells['empty_cell'],
                         self._distance_heatmap,
                         self._tranposition_table,
                         max_depth=effective_max_depth
@@ -112,7 +118,9 @@ class Agent:
                     return action
 
         # refresh the transposition table 
-        if self._turn_count == 5:
+        if self._turn_count == 4:
+            if self._placement_start_time is not None:
+                print(f"Placement phase take  = {self._placement_start_time - referee["time_remaining"]}")
             self._tranposition_table = {}
 
 
@@ -191,7 +199,7 @@ class Agent:
                 raise ValueError(f"Unknown action type: {action}")
 
         self._board.apply_action(action)
-        self._cells = self._find_cells(self._board, self._color)
+        # self._cells = self._find_cells(self._board, self._color)
         # print(f"Cells for {self._color} = {self._cells}")
 
    
