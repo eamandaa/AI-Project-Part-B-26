@@ -424,94 +424,94 @@ def manhanttan_distance(
     return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
 
-def all_legal_actions(self,board) -> list[Action]:
-    eat_actions = []
-    cascade_actions = []
-    move_actions = []
-    
-    for current_coord, cell in board._state.items(): 
-        if cell.is_empty:
-            continue
-        if cell.color != board.turn_color:
-            continue
-
-        current_cell_state = board[current_coord]
-        current_r , current_c = current_coord.r, current_coord.c
-        current_color, current_height = current_cell_state.color, current_cell_state.height
-        for direction in CARDINAL_DIRECTIONS:
-        
-            if direction == Direction.Up:    
-                if current_r == 0: 
-                    continue
-                new_coord = Coord(current_r - 1, current_c)
-            elif direction == Direction.Down: 
-                if current_r == 7: 
-                    continue
-                new_coord = Coord(current_r + 1, current_c)
-            elif direction == Direction.Left: 
-                if current_c == 0: 
-                    continue
-                new_coord = Coord(current_r, current_c - 1)
-            else:                            
-                if current_c == 7: continue
-                new_coord = Coord(current_r, current_c + 1)
-            
-            
-            # Cascade action
-            if current_height >= 2:
-                cascade_actions.append(CascadeAction(current_coord, direction))
-
-            neighbour = board[new_coord]
-
-            if neighbour is None or neighbour.color is None:
-                move_actions.append(MoveAction(current_coord, direction))
-            elif neighbour.color == current_color:
-                move_actions.append(MoveAction(current_coord, direction))
-            elif neighbour.height <= current_height:
-                eat_actions.append(EatAction(current_coord, direction))
-
-    actions = eat_actions + cascade_actions + move_actions
-    actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
-    return actions
-
 # def all_legal_actions(self,board) -> list[Action]:
 #     eat_actions = []
 #     cascade_actions = []
 #     move_actions = []
-#     for coord, cell in board._state.items():
+    
+#     for current_coord, cell in board._state.items(): 
 #         if cell.is_empty:
 #             continue
 #         if cell.color != board.turn_color:
 #             continue
-#         for each_dir in CARDINAL_DIRECTIONS:
 
-#             #Eat
-#             try:
-#                 eat = EatAction(coord, each_dir)
-#                 board._resolve_eat_action(eat)
-#                 eat_actions.append(eat)
-#             except IllegalActionException:
-#                 pass
+#         current_cell_state = board[current_coord]
+#         current_r , current_c = current_coord.r, current_coord.c
+#         current_color, current_height = current_cell_state.color, current_cell_state.height
+#         for direction in CARDINAL_DIRECTIONS:
+        
+#             if direction == Direction.Up:    
+#                 if current_r == 0: 
+#                     continue
+#                 new_coord = Coord(current_r - 1, current_c)
+#             elif direction == Direction.Down: 
+#                 if current_r == 7: 
+#                     continue
+#                 new_coord = Coord(current_r + 1, current_c)
+#             elif direction == Direction.Left: 
+#                 if current_c == 0: 
+#                     continue
+#                 new_coord = Coord(current_r, current_c - 1)
+#             else:                            
+#                 if current_c == 7: continue
+#                 new_coord = Coord(current_r, current_c + 1)
+            
+            
+#             # Cascade action
+#             if current_height >= 2:
+#                 cascade_actions.append(CascadeAction(current_coord, direction))
 
-#             #Cascade
-#             try:
-#                 cascade = CascadeAction(coord,each_dir)
-#                 board._resolve_cascade_action(cascade)
-#                 cascade_actions.append(cascade)
+#             neighbour = board[new_coord]
 
-#             except IllegalActionException:
-#                 pass
+#             if neighbour is None or neighbour.color is None:
+#                 move_actions.append(MoveAction(current_coord, direction))
+#             elif neighbour.color == current_color:
+#                 move_actions.append(MoveAction(current_coord, direction))
+#             elif neighbour.height <= current_height:
+#                 eat_actions.append(EatAction(current_coord, direction))
 
-#             #Move
-#             try:
-#                 move = MoveAction(coord, each_dir)
-#                 board._resolve_move_action(move)
-#                 move_actions.append(move)
-#             except IllegalActionException:
-#                 pass
 #     actions = eat_actions + cascade_actions + move_actions
 #     actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
 #     return actions
+
+def all_legal_actions(self,board) -> list[Action]:
+    eat_actions = []
+    cascade_actions = []
+    move_actions = []
+    for coord, cell in board._state.items():
+        if cell.is_empty:
+            continue
+        if cell.color != board.turn_color:
+            continue
+        for each_dir in CARDINAL_DIRECTIONS:
+
+            #Eat
+            try:
+                eat = EatAction(coord, each_dir)
+                board._resolve_eat_action(eat)
+                eat_actions.append(eat)
+            except IllegalActionException:
+                pass
+
+            #Cascade
+            try:
+                cascade = CascadeAction(coord,each_dir)
+                board._resolve_cascade_action(cascade)
+                cascade_actions.append(cascade)
+
+            except IllegalActionException:
+                pass
+
+            #Move
+            try:
+                move = MoveAction(coord, each_dir)
+                board._resolve_move_action(move)
+                move_actions.append(move)
+            except IllegalActionException:
+                pass
+    actions = eat_actions + cascade_actions + move_actions
+    actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
+    return actions
 
 def iterative_deepening_play(
     self,
