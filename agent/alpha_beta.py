@@ -234,8 +234,8 @@ def heuristic_func(self,board,agent_color) -> int:
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
-        #Cascade if u wanna check ur friendly token might break bcs of the for loop break    
-        #Cascade calculation, missing checking my own token if i cascade in the range
+
+        #Cascade calculation
         if h >= 2:
             for d in CARDINAL_DIRECTIONS:
                 reach = h
@@ -409,7 +409,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 40 * (agent_eat - opp_eat ) #40
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
     score -= 9 * (agent_threat - opp_threat)
-    score += 10 * (agent_cascade_kill - opp_cascade_kill)
+    score += 30 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
     #score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
@@ -428,37 +428,48 @@ def all_legal_actions(self,board) -> list[Action]:
     eat_actions = []
     cascade_actions = []
     move_actions = []
-    for coord, cell in board._state.items():
+    
+    for current_coord, cell in board._state.items(): 
         if cell.is_empty:
             continue
         if cell.color != board.turn_color:
             continue
-        for each_dir in CARDINAL_DIRECTIONS:
 
-            #Eat
-            try:
-                eat = EatAction(coord, each_dir)
-                board._resolve_eat_action(eat)
-                eat_actions.append(eat)
-            except IllegalActionException:
-                pass
+        current_cell_state = board[current_coord]
+        current_r , current_c = current_coord.r, current_coord.c
+        current_color, current_height = current_cell_state.color, current_cell_state.height
+        for direction in CARDINAL_DIRECTIONS:
+        
+            if direction == Direction.Up:    
+                if current_r == 0: 
+                    continue
+                new_coord = Coord(current_r - 1, current_c)
+            elif direction == Direction.Down: 
+                if current_r == 7: 
+                    continue
+                new_coord = Coord(current_r + 1, current_c)
+            elif direction == Direction.Left: 
+                if current_c == 0: 
+                    continue
+                new_coord = Coord(current_r, current_c - 1)
+            else:                            
+                if current_c == 7: continue
+                new_coord = Coord(current_r, current_c + 1)
+            
+            
+            # Cascade action
+            if current_height >= 2:
+                cascade_actions.append(CascadeAction(current_coord, direction))
 
-            #Cascade
-            try:
-                cascade = CascadeAction(coord,each_dir)
-                board._resolve_cascade_action(cascade)
-                cascade_actions.append(cascade)
+            neighbour = board[new_coord]
 
-            except IllegalActionException:
-                pass
+            if neighbour is None or neighbour.color is None:
+                move_actions.append(MoveAction(current_coord, direction))
+            elif neighbour.color == current_color:
+                move_actions.append(MoveAction(current_coord, direction))
+            elif neighbour.height <= current_height:
+                eat_actions.append(EatAction(current_coord, direction))
 
-            #Move
-            try:
-                move = MoveAction(coord, each_dir)
-                board._resolve_move_action(move)
-                move_actions.append(move)
-            except IllegalActionException:
-                pass
     actions = eat_actions + cascade_actions + move_actions
     actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
     return actions
