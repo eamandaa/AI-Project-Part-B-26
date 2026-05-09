@@ -36,6 +36,8 @@ class Agent:
         self._distance_heatmap = compute_distance_heatmap()
         self._tranposition_table = {}
 
+        self._placement_start_time = None
+
         self.referee = referee
 
     def _find_cells(
@@ -75,6 +77,9 @@ class Agent:
 
         # During placement phase (first 8 turns total, 4 per player)
         if self._turn_count < 4: 
+            if self._board.turn_count == 0:
+                self._placement_start_time = referee["time_remaining"]
+
             placements_remaining = 4 - self._turn_count
             print(f"remaining placement count = {placements_remaining}, colour = {self._color}")
             match self._color:
@@ -116,7 +121,9 @@ class Agent:
                     return action
 
         # refresh the transposition table 
-        if self._turn_count == 5:
+        if self._turn_count == 4:
+            if self._placement_start_time is not None:
+                print(f"Placement phase time taken = {self._placement_start_time - referee['time_remaining']}")
             self._tranposition_table = {}
 
 
