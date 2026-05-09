@@ -211,6 +211,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #Eat calculations including 3 and 4 and 
     for (r,c), h in agent_positions.items():
+        # track mobility 
         moves_count = 0
         for d in CARDINAL_DIRECTIONS:
             new_r , new_c = r + d.r , c + d.c 
@@ -219,6 +220,22 @@ def heuristic_func(self,board,agent_color) -> int:
 
             if (new_r, new_c) in agent_positions: #merging friendly token
                 moves_count += 1
+                
+                new_height = agent_positions[(new_r, new_c)] + h
+
+                # not immediate eat threat and eat benefit 
+                for adj_d in CARDINAL_DIRECTIONS:
+                    adj_r, adj_c = r + adj_d.r, c + adj_d.c
+                    if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
+                        continue
+                    
+                    if(adj_r, adj_c) in opp_positions:
+                        opp_h = opp_positions[(adj_r, adj_c)]
+                        if new_height >= opp_h:
+                            agent_eat += opp_h // 2
+                        if new_height <= opp_h:
+                            agent_threat += new_height // 2
+                            
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
@@ -227,8 +244,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     agent_eat += opp_h #score for just potential eating
 
                 if opp_h >= h:
-                    agent_threat += h #gonna be eaten by enemy
-
+                    agent_threat += h #gonna be eaten by enemy        
             else:
                 moves_count += 1 #move to empty cell
         if moves_count <= 1: 
@@ -282,6 +298,20 @@ def heuristic_func(self,board,agent_color) -> int:
 
             if (new_r, new_c) in opp_positions:
                 moves_count += 1
+                new_height = opp_positions[(new_r, new_c)] + h
+
+                # not immediate eat threat and eat benefit 
+                for adj_d in CARDINAL_DIRECTIONS:
+                    adj_r, adj_c = r + adj_d.r, c + adj_d.c
+                    if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
+                        continue
+                    
+                    if(adj_r, adj_c) in agent_positions:
+                        agent_h = agent_positions[(adj_r, adj_c)]
+                        if new_height >= agent_h:
+                            opp_eat += agent_h // 2
+                        if new_height <= agent_h:
+                            opp_threat += new_height // 2
             elif (new_r , new_c) in agent_positions:
                 agent_h = agent_positions[(new_r, new_c)]
                 if h >= agent_h:
@@ -406,7 +436,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 10 * (agent_stacks - opp_stacks)
     score -= 7 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
-    score += 40 * (agent_eat - opp_eat ) #40
+    score += 45 * (agent_eat - opp_eat ) #40
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
     score -= 9 * (agent_threat - opp_threat)
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
@@ -431,37 +461,47 @@ def all_legal_actions(self,board) -> list[Action]:
     move_actions = []
     
     for current_coord, cell in board._state.items(): 
+        # empty cell 
         if cell.is_empty:
             continue
+        # enemy coord
         if cell.color != board.turn_color:
             continue
-
+        
+        # intialisation of the current coord
         current_cell_state = board[current_coord]
         current_r , current_c = current_coord.r, current_coord.c
         current_color, current_height = current_cell_state.color, current_cell_state.height
         for direction in CARDINAL_DIRECTIONS:
-        
-            if direction == Direction.Up:    
-                if current_r == 0: 
-                    continue
-                new_coord = Coord(current_r - 1, current_c)
-            elif direction == Direction.Down: 
-                if current_r == 7: 
-                    continue
-                new_coord = Coord(current_r + 1, current_c)
-            elif direction == Direction.Left: 
-                if current_c == 0: 
-                    continue
-                new_coord = Coord(current_r, current_c - 1)
-            else:                            
-                if current_c == 7: continue
-                new_coord = Coord(current_r, current_c + 1)
-            
-            
+
+            # if direction == Direction.Up:    
+            #     if current_r == 0: 
+            #         continue
+            #     new_coord = Coord(current_r - 1, current_c)
+            # elif direction == Direction.Down: 
+            #     if current_r == 7: 
+            #         continue
+            #     new_coord = Coord(current_r + 1, current_c)
+            # elif direction == Direction.Left: 
+            #     if current_c == 0: 
+            #         continue
+            #     new_coord = Coord(current_r, current_c - 1)
+            # else:                            
+            #     if current_c == 7: continue
+            #     new_coord = Coord(current_r, current_c + 1)
+
             # Cascade action
             if current_height >= 2:
                 cascade_actions.append(CascadeAction(current_coord, direction))
 
+            new_r = current_r + direction.r
+            new_c = current_c + direction.c
+
+            if not board._is_within_bounds(new_r, new_c):
+                continue
+
+            # neighbour coord 
+            new_coord = Coord(new_r, new_c)
             neighbour = board[new_coord]
 
             if neighbour is None or neighbour.color is None:
@@ -473,7 +513,7 @@ def all_legal_actions(self,board) -> list[Action]:
 
     actions = eat_actions + cascade_actions + move_actions
     actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
-    print(f"Generating possible action with condition check is {time.time() - start}")
+    # print(f"Generating possible action with condition check is {time.time() - start}")
     return actions
 
 # def all_legal_actions(self,board) -> list[Action]:
@@ -714,9 +754,9 @@ def min_max_algo_with_time(
     return best_score
 
 def action_order_score(board, action):
+    coord = action.coord
+    d = action.direction
     if isinstance(action, EatAction):
-        coord = action.coord
-        d = action.direction
         target = Coord(coord.r + d.r, coord.c + d.c)
 
         victim = board._state[target]
@@ -728,9 +768,6 @@ def action_order_score(board, action):
         return 10000
 
     if isinstance(action, CascadeAction):
-        
-        coord = action.coord
-        d = action.direction
         h = board._state[coord].height
 
         if d.r == 1:
@@ -746,6 +783,12 @@ def action_order_score(board, action):
 
         return 1000 + h * 10 - lost_tokens * 500
 
+    if isinstance(action, MoveAction):
+        target = Coord(coord.r + d.r, coord.c + d.c)
+
+        # if merge is available
+        if not board._state[target].is_empty:
+            return 10 * (board._state[target].height + board._state[coord].height)
 
     return 0
 

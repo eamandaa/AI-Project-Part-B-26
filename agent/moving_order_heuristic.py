@@ -457,7 +457,7 @@ def score_moving_order(
 
             coord = Coord(coord_r, coord_c)
 
-            cell_state = board.__getitem__(coord)
+            cell_state = board[coord]
 
             # degree of movement 
             if cell_state.is_empty:
