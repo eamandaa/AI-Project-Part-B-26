@@ -25,7 +25,6 @@ class Agent:
         self._color = color
         self._turn_count = 0
         self._board = Board()
-        self._cells = self._find_cells(self._board, color)
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
@@ -90,7 +89,6 @@ class Agent:
                     action =iterative_deepening_place(
                         self._board, 
                         self._color,
-                        self._cells['empty_cell'],
                         self._distance_heatmap,
                         self._tranposition_table,
                         self._board.turn_count,
@@ -108,7 +106,6 @@ class Agent:
                     action =iterative_deepening_place(
                         self._board, 
                         self._color,
-                        self._cells['empty_cell'],
                         self._distance_heatmap,
                         self._tranposition_table,
                         self._board.turn_count,
@@ -147,30 +144,6 @@ class Agent:
                     print(f"space remaining for BLUE = {referee["space_remaining"]}")
                 return action
 
-        
-    def _find_cells(
-        self, 
-        board: Board, 
-        my_colour: PlayerColor
-    ) -> dict[int, list[Coord] | None]:
-
-        cells = {
-            "my_cell": [],
-            "enemy_cell": [],
-            "empty_cell": []
-        }
-
-        for coord, cell in board._state.items():
-            if cell.is_empty:
-                cells['empty_cell'].append(coord)
-            elif cell.color == my_colour:
-                cells['my_cell'].append(coord)
-            else:
-                cells['enemy_cell'].append(coord)
-
-        return cells
-       
-
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
         This method is called by the referee after a player has taken their
@@ -202,7 +175,6 @@ class Agent:
                 raise ValueError(f"Unknown action type: {action}")
 
         self._board.apply_action(action)
-        self._cells = self._find_cells(self._board, self._color)
         # print(f"Cells for {self._color} = {self._cells}")
 
    

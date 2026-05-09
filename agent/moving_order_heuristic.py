@@ -322,7 +322,6 @@ def choose_best_action_during_placement_with_move_order(
 
 def all_legal_actions_during_pacement(
     board: Board,
-    empty_cells: list[Coord],
     turn_count: int,
 ) -> list[Action]:
     """
@@ -333,7 +332,7 @@ def all_legal_actions_during_pacement(
 
     current_colour = board.turn_color
 
-    for coord in empty_cells:
+    for coord, cell in board._state.items():
         if not board[coord].is_empty:
             continue
 
@@ -344,16 +343,9 @@ def all_legal_actions_during_pacement(
             place = PlaceAction(coord)
         else:
             place = PlaceAction(coord)
-        # try:
-        #     cell = board.apply_action(place)
-        # except IllegalActionException:
-        #     continue
-
-        # try:
+    
         place_score = score_moving_order(board, coord, current_colour)
         place_actions[place] = place_score
-        # finally:
-        #     board.undo_action()  
 
     sorted_placement_score = sorted(place_actions.items(),key = lambda x : x[1], reverse = True)
     return [action for action, _ in sorted_placement_score]
@@ -491,7 +483,6 @@ def score_moving_order(
 def iterative_deepening_place(
     board: Board,
     agent_colour: PlayerColor,
-    empty_cells: list[Coord],
     distance_heatmap: list[list[int]],
     transposition_table: dict,
     turn_count: int,
@@ -503,7 +494,7 @@ def iterative_deepening_place(
 
     for depth in range(1, max_depth + 1):
         score, action = minimax_root(
-            board, depth, agent_colour, empty_cells,
+            board, depth, agent_colour,
             distance_heatmap, transposition_table, turn_count, start_time=start, 
             time_limit=time_limit
         )
@@ -519,7 +510,6 @@ def minimax_root(
     board: Board,
     depth: int,
     agent_colour: PlayerColor,
-    empty_cells: list[Coord],
     distance_heatmap: list[list[int]],
     transposition_table: dict,
     turn_count: int, 
@@ -536,7 +526,7 @@ def minimax_root(
     alpha = float("-inf")
     beta = float("inf")
 
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells, turn_count)
+    possible_actions = all_legal_actions_during_pacement(board, turn_count)
 
     hash_key = compute_hash(board)
 
@@ -561,7 +551,6 @@ def minimax_root(
                     alpha, 
                     beta, 
                     my_colour=agent_colour,
-                    empty_cells=empty_cells,
                     distance_heatmap=distance_heatmap,
                     transposition_table = transposition_table,
                     turn_count = turn_count + 1,
@@ -592,7 +581,6 @@ def min_max_algo_with_time(
     alpha: float, 
     beta: float,
     my_colour: PlayerColor,
-    empty_cells: list[Coord],
     distance_heatmap: list[list[int]],
     transposition_table: dict,
     turn_count: int, 
@@ -631,7 +619,7 @@ def min_max_algo_with_time(
         return value
     
     # generate move 
-    possible_actions = all_legal_actions_during_pacement(board,empty_cells, turn_count=turn_count)
+    possible_actions = all_legal_actions_during_pacement(board,turn_count=turn_count)
 
     # let tt be the first one, as it is prove better than heuristic guess
     if tt_move is not None and tt_move in possible_actions:
@@ -656,7 +644,6 @@ def min_max_algo_with_time(
                     alpha,
                     beta, 
                     my_colour, 
-                    empty_cells, 
                     distance_heatmap, 
                     transposition_table, 
                     turn_count + 1, 
@@ -687,7 +674,6 @@ def min_max_algo_with_time(
                     alpha,
                     beta, 
                     my_colour, 
-                    empty_cells, 
                     distance_heatmap, 
                     transposition_table, 
                     turn_count + 1,
