@@ -729,31 +729,21 @@ def action_order_score(board, action):
         
         coord = action.coord
         d = action.direction
-        stack = board._state[coord]
-        score = 1000 + stack.height * 10
-        return score
+        h = board._state[coord].height
 
-        for step in range(1, stack.height + 1):
-            nr = coord.r + d.r * step
-            nc = coord.c + d.c * step
+        if d.r == 1:
+            dist_to_edge = 7 - coord.r
+        elif d.r == -1:
+            dist_to_edge = coord.r
+        elif d.c == 1:
+            dist_to_edge = 7 - coord.c
+        else:
+            dist_to_edge = coord.c
 
-            if not (0 <= nr <= 7 and 0 <= nc <= 7):
-                break
+        lost_tokens = max(0, h - dist_to_edge)
 
-            check = Coord(nr, nc)
-            cell = board._state[check]
+        return 1000 + h * 10 - lost_tokens * 500
 
-            if not cell.is_empty:
-                if cell.color != board.turn_color:
-                    score += 300 * cell.height #an enemy is in our cascade, might be push to the edges so reward some score
-                    push_steps = stack.height - step + 1
-                    final_r = nr + d.r * push_steps
-                    final_c = nc + d.c * push_steps
-
-                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                        score += 5000 + 500 * cell.height #push out of bounds so extra score
-
-        return score
 
     return 0
 
