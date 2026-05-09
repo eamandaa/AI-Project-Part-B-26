@@ -364,6 +364,21 @@ def heuristic_func(self,board,agent_color) -> int:
                         score += 120 * opp_h
                     elif h == opp_h:
                         score += 40 * opp_h
+    
+    # to prevent draw, chase and eat more agressively
+    if agent_stacks + opp_stacks <= 5:
+        best_safe_dist = math.inf
+
+        for (r, c), h in agent_positions.items():
+            for (opp_r, opp_c), opp_h in opp_positions.items():
+
+                # only chase if our stack is strictly stronger
+                if h >= opp_h:
+                    dist = abs(r - opp_r) + abs(c - opp_c)
+                    best_safe_dist = min(best_safe_dist, dist)
+
+        if best_safe_dist < math.inf:
+            endgame += max(0, 8 - best_safe_dist) * 35
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
@@ -462,6 +477,12 @@ def heuristic_func(self,board,agent_color) -> int:
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
 
 
+    play_turns = len(board._position_history)
+    if play_turns >= 120:
+        score += 75 * (agent_total - opp_total)
+    else:
+        score += 50 * (agent_total - opp_total)
+
     
     # score += 8 * (agent_largest - opp_largest)
     # score += 40 * (agent_total - opp_total)
@@ -475,7 +496,7 @@ def heuristic_func(self,board,agent_color) -> int:
     # score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
     # #score += 1 * ( agent_cascade_push - opp_cascade_push )
     # score += endgame
-    score += 70 * (agent_total - opp_total)
+    #score += 70 * (agent_total - opp_total)
     score += 15 * (agent_eat - opp_eat)
     score -= 30 * agent_threat
     score += 10 * opp_threat

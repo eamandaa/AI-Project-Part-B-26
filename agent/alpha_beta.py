@@ -120,7 +120,7 @@ def heuristic_func(self,board,agent_color) -> int:
     """
     1. token count 2. height count 3. eat opp including bonus (eg prioritise larger height) 4. opp eat us 
     5. cascade kill 6. cascadee self loss 7. edge score 8. threathed token 
-    9. trapped 10. endgame 11. 
+    9. trapped 10. endgame 11.  
 
     #later can try adding score for pushing cascade too edge
     """
@@ -483,6 +483,13 @@ def heuristic_func(self,board,agent_color) -> int:
     else:
         score += 50 * (agent_total - opp_total)
 
+    #Defensive mode
+    # losing = (agent_total <= opp_total - 3)
+    # if losing == True:
+    #     score -= 10 * agent_threat
+    #     score -= 7 * agent_trapped
+
+
     score += 5 * (agent_largest - opp_largest)
     score += 5 * (agent_stacks - opp_stacks)
     score -= 3 * (agent_edge - opp_edge)
@@ -655,6 +662,7 @@ def minimax_root(
 
     hash_key = compute_hash(board)
 
+
     tt_move = None
     if hash_key in self._tranposition_table:
         _, _, _, stored_best_move = self._tranposition_table[hash_key]
@@ -689,8 +697,8 @@ def minimax_root(
             
             board.undo_action()
             if count_repetition >= 2:
-                print("deduct score")
-                curr_score -= 15000
+                print("deduct score\n sxff \n \sdv \n xew \n")
+                curr_score -= 150000
 
             if curr_score > best_score:
                 best_score = curr_score
