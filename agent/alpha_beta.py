@@ -235,13 +235,15 @@ def heuristic_func(self,board,agent_color) -> int:
                             agent_eat += opp_h // 2
                         if new_height <= opp_h:
                             agent_threat += new_height // 2
-                            
+
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
                     moves_count += 1
                     agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
                     agent_eat += opp_h #score for just potential eating
+
+                    opp_cascade_kill += (calculate_potential_cascade_after_eat(r, c, h, opp_positions)) // 2
 
                 if opp_h >= h:
                     agent_threat += h #gonna be eaten by enemy        
@@ -318,6 +320,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     moves_count += 1
                     opp_eat_bonus += agent_h * 10
                     opp_eat += agent_h
+                    agent_cascade_kill += (calculate_potential_cascade_after_eat(r, c, h, agent_positions)) // 2
 
                 if agent_h >= h:
                     opp_threat += h
@@ -434,7 +437,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 8 * (agent_largest - opp_largest)
     score += 40 * (agent_total - opp_total)
     score += 10 * (agent_stacks - opp_stacks)
-    score -= 7 * (agent_edge - opp_edge)
+    score -= 5 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
     score += 45 * (agent_eat - opp_eat ) #40
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
@@ -445,6 +448,42 @@ def heuristic_func(self,board,agent_color) -> int:
     score += endgame
 
     return score
+
+def calculate_potential_cascade_after_eat(
+    r: int,
+    c: int,
+    h: int, 
+    opponent_position: dict[tuple[int, int], int],
+) -> int:
+    """
+    Check all direction within the same row and same column to check is there 
+    any threat to be pushed off the board after eat an enemy token
+    """
+    cascade_risk = 0
+    for direction in CARDINAL_DIRECTIONS:
+        step = 1
+
+        while True:
+            new_r = r + direction.r * step
+            new_c = c + direction.c * step
+
+            if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
+                break
+
+            if (new_r, new_c) in opponent_position:
+                opponent_height = opponent_position[(new_r, new_c)]
+
+                dest_r = new_r + direction.r * opponent_height
+                dest_c = new_c + direction.c * opponent_height
+               
+                if not (0 <= dest_r <= 7 and 0 <= dest_c <= 7):
+                    cascade_risk += h
+                    break
+
+            step += 1
+
+    return cascade_risk
+
 
 def manhanttan_distance(
     coord_one: Coord, 
