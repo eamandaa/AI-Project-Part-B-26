@@ -36,6 +36,7 @@ class Agent:
         self._tranposition_table = {}
 
         self._placement_start_time = None
+
         self.referee = referee
 
     def _find_cells(
