@@ -346,7 +346,7 @@ def heuristic_func(self,board,agent_color) -> int:
                             if after_edge < before_edge:
                                 opp_cascade_push += enemy_height
                             if enemy_height >= h:
-                                agent_bad_cascade_risk += enemy_height * 2
+                                opp_bad_cascade_risk += enemy_height * 2
                             if enemy_height > 1:
                                 last_token_r = r + d.r * reach
                                 last_token_c = c + d.c * reach
@@ -714,7 +714,7 @@ def minimax_root(
                     time_limit=time_limit
                 ) 
                 current_hash = board._board_hash()
-                count_repetition = board._position_history.count(current_hash) >= 2
+                count_repetition = board._position_history.count(current_hash) >= 3
             except TimeoutError:
                 board.undo_action()
                 raise

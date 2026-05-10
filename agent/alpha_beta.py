@@ -115,7 +115,6 @@ def min_max_algo(
     self._tranposition_table[hash_key] = (depth, best_score, score_flag, best_move)
     return best_score
 
-
 def heuristic_func(self,board,agent_color) -> int:
     """
     1. token count 2. height count 3. eat opp including bonus (eg prioritise larger height) 4. opp eat us 
@@ -227,12 +226,28 @@ def heuristic_func(self,board,agent_color) -> int:
 
             if (new_r, new_c) in agent_positions: #merging friendly token
                 moves_count += 1
+                new_height = agent_positions[(new_r, new_c)] + h 
+
+                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
+                    new_r, new_c, new_height, opp_positions)
+                opp_cascade_kill += opp_cascade_after_merge // 2
+                agent_threat += opp_eat_after_merge // 2
+                agent_eat += agent_eat_after_merge // 2
+
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
                     moves_count += 1
-                    agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
+                    # agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
+                    agent_eat_bonus += (opp_h / h) * 10
                     agent_eat += opp_h #score for just potential eating
+
+                    opp_cascade_after_eat, opp_eat_after_eat, agent_eat_after_eat = calculate_potential_risk_after_action(
+                        new_r, new_c, h, opp_positions)
+                    opp_cascade_kill += opp_cascade_after_eat // 2
+                    agent_threat += opp_eat_after_eat // 2
+                    agent_eat += agent_eat_after_eat // 2
+
                     if h > opp_h:
                         agent_safe_eat += opp_h
 
@@ -266,32 +281,23 @@ def heuristic_func(self,board,agent_color) -> int:
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                             agent_cascade_kill += enemy_height
                         else:
-                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+                            agent_bad_cascade_risk += enemy_height * 2
+                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
-                            if after_edge < before_edge:
-                                agent_cascade_push += enemy_height
-                            if enemy_height >= h:
-                                agent_bad_cascade_risk += enemy_height * 2
-                            if enemy_height > 1:
-                                last_token_r = r + d.r * reach
-                                last_token_c = c + d.c * reach
-
-                                if 0 <= last_token_r <= 7 and 0 <= last_token_c <= 7:
-                                    if abs(last_token_r - final_r) + abs(last_token_c - final_c) == 1:
-                                        agent_bad_cascade_risk += enemy_height
-                                        #print("OPP ad \n diaj")
+                        #     if after_edge < before_edge:
+                        #         agent_cascade_push += enemy_height
 
                     elif (new_r, new_c) in agent_positions:
                         own_height = agent_positions[(new_r, new_c)]
 
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                             agent_cascade_self_loss += own_height #losing our own agent
-                        else:
-                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                            if after_edge < before_edge:
-                                agent_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
+                        # else:
+                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+                        #     if after_edge < before_edge:
+                        #         agent_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
 
     for (r,c), h in opp_positions.items():
         moves_count = 0
@@ -302,14 +308,43 @@ def heuristic_func(self,board,agent_color) -> int:
 
             if (new_r, new_c) in opp_positions:
                 moves_count += 1
+
+                new_height = opp_positions[(new_r, new_c)] + h
+
+                agent_cascade_after_merge, agent_eat_after_merge, opp_eat_after_merge = calculate_potential_risk_after_action(
+                    new_r, new_c, new_height, agent_positions)
+                agent_cascade_kill += agent_cascade_after_merge // 2
+                opp_threat += agent_eat_after_merge // 2
+                opp_eat += opp_eat_after_merge // 2
+
+                # # not immediate eat threat and eat benefit 
+                # for adj_d in CARDINAL_DIRECTIONS:
+                #     adj_r, adj_c = new_r + adj_d.r, new_c + adj_d.c
+                #     if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
+                #         continue
+                    
+                #     if(adj_r, adj_c) in agent_positions:
+                #         agent_h = agent_positions[(adj_r, adj_c)]
+                #         if new_height >= agent_h:
+                #             opp_eat += agent_h // 2
+                #         if new_height <= agent_h:
+                #             opp_threat += new_height // 2
+
             elif (new_r , new_c) in agent_positions:
                 agent_h = agent_positions[(new_r, new_c)]
                 if h >= agent_h:
                     moves_count += 1
-                    opp_eat_bonus += agent_h * 10
+                    opp_eat_bonus += (agent_h / h) * 10
                     opp_eat += agent_h
-                    if h > agent_h:
-                        opp_safe_eat += agent_h 
+                    
+                    agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
+                        new_r, new_c, h, agent_positions)
+                    agent_cascade_kill += agent_cascade_after_eat // 2
+                    opp_threat += agent_eat_after_eat // 2
+                    opp_eat += opp_eat_after_eat // 2
+
+                    if h > opp_h:
+                        opp_safe_eat += agent_h
 
                 if agent_h >= h:
                     opp_threat += h
@@ -340,31 +375,23 @@ def heuristic_func(self,board,agent_color) -> int:
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                             opp_cascade_kill += enemy_height
                         else:
-                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+                            opp_bad_cascade_risk += enemy_height * 2
+                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
-                            if after_edge < before_edge:
-                                opp_cascade_push += enemy_height
-                            if enemy_height >= h:
-                                opp_bad_cascade_risk += enemy_height * 2
-                            if enemy_height > 1:
-                                last_token_r = r + d.r * reach
-                                last_token_c = c + d.c * reach
-
-                                if 0 <= last_token_r <= 7 and 0 <= last_token_c <= 7:
-                                    if abs(last_token_r - final_r) + abs(last_token_c - final_c) == 1:
-                                       opp_bad_cascade_risk += enemy_height
+                        #     if after_edge < before_edge:
+                        #         opp_cascade_push += enemy_height
 
                     elif (new_r, new_c) in opp_positions:
                         own_height = opp_positions[(new_r, new_c)]
 
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                             opp_cascade_self_loss += own_height #losing our own agent
-                        else:
-                            before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                            after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                            if after_edge < before_edge:
-                                opp_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
+                        # else:
+                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
+                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+                        #     if after_edge < before_edge:
+                        #         opp_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
 
     # For winning preperation
     endgame = 0
@@ -442,7 +469,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     second_closest_dist = closest_dist
                     closest_dist = dist
                 elif dist < second_closest_dist:
-                    second_closest_dist = dist 
+                    second_closest_dist = dist
 
                 if dist == 1 and h >= opp_h:
                     hunters_adjacent += 1 #potential eat immidiately without movement
@@ -523,20 +550,80 @@ def heuristic_func(self,board,agent_color) -> int:
     score -= 3 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
     score += 40 * (agent_eat - opp_eat ) #40
-    #score += 20 * (agent_safe_eat - opp_safe_eat) #safe use but bonus not
-    score += 2 * (agent_eat_bonus- opp_eat_bonus)  #
-    #score -= 9 * (agent_threat - opp_threat)
-    score -= 10 *  agent_bad_cascade_risk
-    score += 9 *  opp_bad_cascade_risk
-    score -= 30 * agent_threat
-    score += 10 * opp_threat
+    #score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
+    score += 2 * (agent_eat_bonus- opp_eat_bonus) 
+    score -= 9 * (agent_threat - opp_threat)
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
+    score -= 10 *  agent_bad_cascade_risk
+    score += 9 *  opp_bad_cascade_risk
     #score -= 30 * len(opp_positions)
     #score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
+    # score += 70 * (agent_total - opp_total)
+    # score += 15 * (agent_eat - opp_eat)
+    # score -= 30 * agent_threat
+    # score += 10 * opp_threat
+    # score += 25 * (agent_cascade_kill - opp_cascade_kill)
+    # score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
+    # score += 3 * (agent_largest - opp_largest)
+    # score += 4 * (agent_stacks - opp_stacks)
+    # score -= 2 * (agent_edge - opp_edge)
+    # score += endgame
 
     return score
+
+def calculate_potential_risk_after_action(
+    r: int,
+    c: int,
+    h: int, 
+    opponent_position: dict[tuple[int, int], int],
+) -> tuple[int, int]:
+    """
+    Check all direction within the same row and same column to check is there 
+    any threat to be pushed off the board or being eaten after performing an action
+    """
+    cascade_risk = 0
+    eat_threat = 0
+    eat_score = 0
+    for direction in CARDINAL_DIRECTIONS:
+        step = 1
+
+        while True:
+            new_r = r + direction.r * step
+            new_c = c + direction.c * step
+
+            if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
+                break
+
+            if (new_r, new_c) in opponent_position:
+                opponent_height = opponent_position[(new_r, new_c)]
+
+                # enemy just next to us
+                if step == 1:
+                    # enemy can eat us 
+                    if opponent_height >= h:
+                        eat_threat += h
+                        break
+                    # just check higher cuz next move is enemy
+                    elif h > opponent_height:
+                        eat_score += opponent_height
+                        break
+
+                # Can this enemy's cascade actually reach the new position
+                if step <= opponent_height:
+                    # get pushed 1 cell further in the direction
+                    push_steps = opponent_height - step + 1
+                    pushed_r = r - direction.r * push_steps
+                    pushed_c = c - direction.c * push_steps
+                    # get pushed out off bound already
+                    if not (0 <= pushed_r <= 7 and 0 <= pushed_c <= 7):
+                        cascade_risk += h
+                    break
+
+            step += 1
+
+    return cascade_risk, eat_threat, eat_score
 
 def manhanttan_distance(
     coord_one: Coord, 
@@ -546,6 +633,58 @@ def manhanttan_distance(
     return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
 
+# def all_legal_actions(self,board) -> list[Action]:
+#     start  = time.time()
+#     eat_actions = []
+#     cascade_actions = []
+#     move_actions = []
+    
+#     for current_coord, cell in board._state.items(): 
+#         if cell.is_empty:
+#             continue
+#         if cell.color != board.turn_color:
+#             continue
+
+#         current_cell_state = board[current_coord]
+#         current_r , current_c = current_coord.r, current_coord.c
+#         current_color, current_height = current_cell_state.color, current_cell_state.height
+#         for direction in CARDINAL_DIRECTIONS:
+        
+#             if direction == Direction.Up:    
+#                 if current_r == 0: 
+#                     continue
+#                 new_coord = Coord(current_r - 1, current_c)
+#             elif direction == Direction.Down: 
+#                 if current_r == 7: 
+#                     continue
+#                 new_coord = Coord(current_r + 1, current_c)
+#             elif direction == Direction.Left: 
+#                 if current_c == 0: 
+#                     continue
+#                 new_coord = Coord(current_r, current_c - 1)
+#             else:                            
+#                 if current_c == 7: continue
+#                 new_coord = Coord(current_r, current_c + 1)
+            
+            
+#             # Cascade action
+#             if current_height >= 2:
+#                 cascade_actions.append(CascadeAction(current_coord, direction))
+
+#             neighbour = board[new_coord]
+
+#             if neighbour is None or neighbour.color is None:
+#                 move_actions.append(MoveAction(current_coord, direction))
+#             elif neighbour.color == current_color:
+#                 move_actions.append(MoveAction(current_coord, direction))
+#             elif neighbour.height <= current_height:
+#                 eat_actions.append(EatAction(current_coord, direction))
+
+#     actions = eat_actions + cascade_actions + move_actions
+#     actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
+#     #print(f"Generating possible action with condition check is {time.time() - start}")
+#     return actions
+
 def all_legal_actions(self,board) -> list[Action]:
     start  = time.time()
     eat_actions = []
@@ -553,37 +692,31 @@ def all_legal_actions(self,board) -> list[Action]:
     move_actions = []
     
     for current_coord, cell in board._state.items(): 
+        # empty cell 
         if cell.is_empty:
             continue
+        # enemy coord
         if cell.color != board.turn_color:
             continue
-
+        
+        # intialisation of the current coord
         current_cell_state = board[current_coord]
         current_r , current_c = current_coord.r, current_coord.c
         current_color, current_height = current_cell_state.color, current_cell_state.height
         for direction in CARDINAL_DIRECTIONS:
-        
-            if direction == Direction.Up:    
-                if current_r == 0: 
-                    continue
-                new_coord = Coord(current_r - 1, current_c)
-            elif direction == Direction.Down: 
-                if current_r == 7: 
-                    continue
-                new_coord = Coord(current_r + 1, current_c)
-            elif direction == Direction.Left: 
-                if current_c == 0: 
-                    continue
-                new_coord = Coord(current_r, current_c - 1)
-            else:                            
-                if current_c == 7: continue
-                new_coord = Coord(current_r, current_c + 1)
-            
             
             # Cascade action
             if current_height >= 2:
                 cascade_actions.append(CascadeAction(current_coord, direction))
 
+            new_r = current_r + direction.r
+            new_c = current_c + direction.c
+
+            if not board._is_within_bounds(new_r, new_c):
+                continue
+
+            # neighbour coord 
+            new_coord = Coord(new_r, new_c)
             neighbour = board[new_coord]
 
             if neighbour is None or neighbour.color is None:
@@ -595,7 +728,7 @@ def all_legal_actions(self,board) -> list[Action]:
 
     actions = eat_actions + cascade_actions + move_actions
     actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
-    #print(f"Generating possible action with condition check is {time.time() - start}")
+    # print(f"Generating possible action with condition check is {time.time() - start}")
     return actions
 
 # def all_legal_actions(self,board) -> list[Action]:
@@ -835,7 +968,6 @@ def min_max_algo_with_time(
 
     self._tranposition_table[hash_key] = (depth, best_score, score_flag, best_move)
     return best_score
-
 def action_order_score(board, action):
     if isinstance(action, EatAction):
         coord = action.coord
@@ -881,58 +1013,10 @@ def action_order_score(board, action):
         return score
 
     return 0
-
-        # if d.r == 1:
-        #     dist_to_edge = 7 - coord.r
-        # elif d.r == -1:
-        #     dist_to_edge = coord.r
-        # elif d.c == 1:
-        #     dist_to_edge = 7 - coord.c
-        # else:
-        #     dist_to_edge = coord.c
-
-        # lost_tokens = max(0, h - dist_to_edge)
-
-        # return 1000 + h * 10 - lost_tokens * 50
-
-
-    return 0
-
-
-# def action_order_score(
-#     board: Board, 
-#     board_mutation: BoardMutation,
-#     original_colour: PlayerColor,
-# ):
-#     pieces_lost_by_enemy = 0
-#     pieces_lost_by_me = 0
-
-#     score = 0
-
-#     # action = board_mutation.action
-
-#     # for cell_mutation in board_mutation.cell_mutations:
-#     #     # opponent get eaten / cascade push off the board
-#     #     if cell_mutation.prev.color != original_colour and not cell_mutation.prev.is_empty and cell_mutation.next.is_empty:
-#     #         pieces_lost_by_enemy += cell_mutation.prev.height
-#     #     # our token fall off the board
-#     #     elif cell_mutation.prev.color == original_colour and cell_mutation.next.is_empty:
-#     #         pieces_lost_by_me += cell_mutation.prev.height
-
-#     #     if isinstance(action, MoveAction):
-#     #         if cell_mutation.next.height > cell_mutation.prev.height:
-#     #             score += 50
-
-#     # score += (pieces_lost_by_enemy * 100)
-#     # score -= (pieces_lost_by_me * 50)
-
-#     # return  score
-
-
-#        # if isinstance()
+# def action_order_score(board, action):
+#     coord = action.coord
+#     d = action.direction
 #     if isinstance(action, EatAction):
-#         coord = action.coord
-#         d = action.direction
 #         target = Coord(coord.r + d.r, coord.c + d.c)
 
 #         victim = board._state[target]
@@ -944,66 +1028,26 @@ def action_order_score(board, action):
 #         return 10000
 
 #     if isinstance(action, CascadeAction):
-        
-#         coord = action.coord
-#         d = action.direction
-#         stack = board._state[coord]
-#         score = 1000 + stack.height * 10
-#         return score
+#         h = board._state[coord].height
 
-#         for step in range(1, stack.height + 1):
-#             nr = coord.r + d.r * step
-#             nc = coord.c + d.c * step
+#         if d.r == 1:
+#             dist_to_edge = 7 - coord.r
+#         elif d.r == -1:
+#             dist_to_edge = coord.r
+#         elif d.c == 1:
+#             dist_to_edge = 7 - coord.c
+#         else:
+#             dist_to_edge = coord.c
 
-#             if not (0 <= nr <= 7 and 0 <= nc <= 7):
-#                 break
+#         lost_tokens = max(0, h - dist_to_edge)
 
-#             check = Coord(nr, nc)
-#             cell = board._state[check]
+#         return 1000 + h * 10 - lost_tokens * 500
 
-#             if not cell.is_empty:
-#                 if cell.color != board.turn_color:
-#                     score += 300 * cell.height #an enemy is in our cascade, might be push to the edges so reward some score
-#                     push_steps = stack.height - step + 1
-#                     final_r = nr + d.r * push_steps
-#                     final_c = nc + d.c * push_steps
+#     if isinstance(action, MoveAction):
+#         target = Coord(coord.r + d.r, coord.c + d.c)
 
-#                     if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-#                         score += 5000 + 500 * cell.height #push out of bounds so extra score
-
-#         return score
+#         # if merge is available
+#         if not board._state[target].is_empty:
+#             return 10 * (board._state[target].height + board._state[coord].height)
 
 #     return 0
-
-       # # Endgame cascade alignment, line up and push to cascade
-                # if h >= 2:
-                #     same_row = (r == opp_r)
-                #     same_col = (c == opp_c)
-
-                #     if same_row or same_col:
-                #         dist = abs(r - opp_r) + abs(c - opp_c)
-
-                #         # cascade can reach enemy
-                #         if dist <= h:
-                #             push_steps = h - dist + 1
-
-                #             # check distance from enemy to edge in the push direction
-                #             if same_col:
-                #                 if opp_r > r:
-                #                     dist_to_edge = 7 - opp_r
-                #                 else:
-                #                     dist_to_edge = opp_r
-                #             else:  # same_row
-                #                 if opp_c > c:
-                #                     dist_to_edge = 7 - opp_c
-                #                 else:
-                #                     dist_to_edge = opp_c
-
-                #             # reward lining up
-                #             endgame += max(0, 8 - dist) * 15
-
-                #             # bigger reward if cascade can push enemy off board
-                #             if push_steps > dist_to_edge:
-                #                 endgame += 180 * opp_h
-                #             else:
-                #                 endgame += 30 * opp_h #try 15 next
