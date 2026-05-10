@@ -224,32 +224,27 @@ def heuristic_func(self,board,agent_color) -> int:
 
             if (new_r, new_c) in agent_positions: #merging friendly token
                 moves_count += 1
+                new_height = agent_positions[(new_r, new_c)] + h 
 
-                new_height = agent_positions[(new_r, new_c)] + h
-
-                # after i merge, how likely i am being eaten by an enemy or i can eat an enemy
-                for adj_d in CARDINAL_DIRECTIONS:
-                    adj_r, adj_c = new_r + adj_d.r, new_c + adj_d.c
-                    if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
-                        continue
-                    
-                    if(adj_r, adj_c) in opp_positions:
-                        opp_h = opp_positions[(adj_r, adj_c)]
-                        if new_height >= opp_h:
-                            agent_eat += opp_h // 2
-                        if new_height <= opp_h:
-                            agent_threat += new_height // 2
+                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
+                    new_r, new_c, new_height, opp_positions)
+                opp_cascade_kill += opp_cascade_after_merge // 2
+                agent_threat += opp_eat_after_merge // 2
+                agent_eat += agent_eat_after_merge // 2
 
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
                     moves_count += 1
-                    agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
+                    # agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
+                    agent_eat_bonus += (opp_h + (h - opp_h)) * 10
                     agent_eat += opp_h #score for just potential eating
 
-                    opp_cascade_after_eat, opp_eat_after_eat = calculate_potential_cascade_after_eat(new_r, new_c, h, opp_positions)
+                    opp_cascade_after_eat, opp_eat_after_eat, agent_eat_after_eat = calculate_potential_risk_after_action(
+                        new_r, new_c, h, opp_positions)
                     opp_cascade_kill += opp_cascade_after_eat // 2
-                    opp_threat += opp_eat_after_eat // 2
+                    agent_threat += opp_eat_after_eat // 2
+                    agent_eat += agent_eat_after_eat // 2
 
                     if h > opp_h:
                         agent_safe_eat += opp_h
@@ -313,28 +308,37 @@ def heuristic_func(self,board,agent_color) -> int:
 
                 new_height = opp_positions[(new_r, new_c)] + h
 
-                # not immediate eat threat and eat benefit 
-                for adj_d in CARDINAL_DIRECTIONS:
-                    adj_r, adj_c = new_r + adj_d.r, new_c + adj_d.c
-                    if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
-                        continue
+                agent_cascade_after_merge, agent_eat_after_merge, opp_eat_after_merge = calculate_potential_risk_after_action(
+                    new_r, new_c, new_height, agent_positions)
+                agent_cascade_kill += agent_cascade_after_merge // 2
+                opp_threat += agent_eat_after_merge // 2
+                opp_eat += opp_eat_after_merge // 2
+
+                # # not immediate eat threat and eat benefit 
+                # for adj_d in CARDINAL_DIRECTIONS:
+                #     adj_r, adj_c = new_r + adj_d.r, new_c + adj_d.c
+                #     if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
+                #         continue
                     
-                    if(adj_r, adj_c) in agent_positions:
-                        agent_h = agent_positions[(adj_r, adj_c)]
-                        if new_height >= agent_h:
-                            opp_eat += agent_h // 2
-                        if new_height <= agent_h:
-                            opp_threat += new_height // 2
+                #     if(adj_r, adj_c) in agent_positions:
+                #         agent_h = agent_positions[(adj_r, adj_c)]
+                #         if new_height >= agent_h:
+                #             opp_eat += agent_h // 2
+                #         if new_height <= agent_h:
+                #             opp_threat += new_height // 2
 
             elif (new_r , new_c) in agent_positions:
                 agent_h = agent_positions[(new_r, new_c)]
                 if h >= agent_h:
                     moves_count += 1
-                    opp_eat_bonus += agent_h * 10
+                    opp_eat_bonus += (agent_h + (h - agent_h)) * 10
                     opp_eat += agent_h
-                    agent_cascade_after_eat, agent_eat_after_eat = calculate_potential_cascade_after_eat(new_r, new_c, h, agent_positions)
+                    
+                    agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
+                        new_r, new_c, h, agent_positions)
                     agent_cascade_kill += agent_cascade_after_eat // 2
-                    agent_threat += agent_eat_after_eat // 2
+                    opp_threat += agent_eat_after_eat // 2
+                    opp_eat += opp_eat_after_eat // 2
 
                     if h > opp_h:
                         opp_safe_eat += agent_h
@@ -563,7 +567,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     return score
 
-def calculate_potential_cascade_after_eat(
+def calculate_potential_risk_after_action(
     r: int,
     c: int,
     h: int, 
@@ -571,10 +575,11 @@ def calculate_potential_cascade_after_eat(
 ) -> tuple[int, int]:
     """
     Check all direction within the same row and same column to check is there 
-    any threat to be pushed off the board after eat an enemy token
+    any threat to be pushed off the board or being eaten after performing an action
     """
     cascade_risk = 0
     eat_threat = 0
+    eat_score = 0
     for direction in CARDINAL_DIRECTIONS:
         step = 1
 
@@ -589,9 +594,13 @@ def calculate_potential_cascade_after_eat(
                 opponent_height = opponent_position[(new_r, new_c)]
 
                 # enemy just next to us
-                if manhanttan_distance(Coord(new_r, new_c), Coord(r, c)) == 1:
+                if step == 1:
                     if opponent_height >= h:
                         eat_threat += h
+                        break
+                    if h >= opponent_height:
+                        eat_score += opponent_height
+                        break
 
                 # Can this enemy's cascade actually reach the new position
                 if step <= opponent_height:
@@ -604,7 +613,7 @@ def calculate_potential_cascade_after_eat(
 
             step += 1
 
-    return cascade_risk, eat_threat
+    return cascade_risk, eat_threat, eat_score
 
 def manhanttan_distance(
     coord_one: Coord, 
