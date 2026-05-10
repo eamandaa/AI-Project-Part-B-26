@@ -257,7 +257,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 opp_cascade_after_move, opp_eat_after_move, agent_eat_after_move = calculate_potential_risk_after_action(
                     new_r, new_c, h, opp_positions)
                 opp_cascade_kill += opp_cascade_after_move // 2
-                agent_threat += opp_eat_after_move
+                agent_threat += opp_eat_after_move // 2
                 agent_eat += agent_eat_after_move // 2
 
         if moves_count <= 1: 
@@ -275,6 +275,12 @@ def heuristic_func(self,board,agent_color) -> int:
                     if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
                         agent_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
                         break
+
+                    opp_cascade_after_cascade, opp_eat_after_cascade, agent_eat_after_cascade = calculate_potential_risk_after_action(
+                        new_r, new_c, 1, opp_positions)
+                    opp_cascade_kill += opp_cascade_after_cascade // 2
+                    agent_threat += opp_eat_after_cascade // 2
+                    agent_eat += agent_eat_after_cascade // 2
 
                     push_steps = reach - step + 1
                     final_r = new_r + d.r * push_steps
@@ -349,7 +355,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
                         new_r, new_c, h, agent_positions)
                     agent_cascade_kill += agent_cascade_after_eat // 2
-                    opp_threat += agent_eat_after_eat
+                    opp_threat += agent_eat_after_eat // 2
                     opp_eat += opp_eat_after_eat // 2
 
                     if h == agent_h:
@@ -362,7 +368,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 agent_cascade_after_move, agent_eat_after_move, opp_eat_after_move = calculate_potential_risk_after_action(
                     new_r, new_c, h, agent_positions)
                 agent_cascade_kill += agent_cascade_after_move // 2
-                opp_threat += agent_eat_after_move
+                opp_threat += agent_eat_after_move // 2
                 opp_eat += opp_eat_after_move // 2
         if moves_count<= 1:
             opp_trapped += 1
@@ -376,9 +382,17 @@ def heuristic_func(self,board,agent_color) -> int:
                 for step in range (1, reach +1):
                     new_r = r + (d.r * step)
                     new_c = c + (d.c * step)
+
                     if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
                         opp_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
                         break
+                    
+                    agent_cascade_after_cascade, agent_eat_after_cascade, opp_eat_after_cascade = calculate_potential_risk_after_action(
+                        new_r, new_c, 1, agent_positions)
+                    agent_cascade_kill += agent_cascade_after_cascade // 2
+                    opp_threat += agent_eat_after_cascade // 2
+                    opp_eat += opp_eat_after_cascade // 2
+
 
                     push_steps = reach - step + 1
                     final_r = new_r + d.r * push_steps 
@@ -394,48 +408,20 @@ def heuristic_func(self,board,agent_color) -> int:
                             if not is_enemy_found:
                                 opp_cascade_self_loss += 1
                                 is_enemy_found = True
-                        # else:
-                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-
-                        #     if after_edge < before_edge:
-                        #         opp_cascade_push += enemy_height
 
                     elif (new_r, new_c) in opp_positions:
                         own_height = opp_positions[(new_r, new_c)]
 
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                             opp_cascade_self_loss += own_height #losing our own agent
+                    
 
-                        # else:
-                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                        #     if after_edge < before_edge:
-                        #         opp_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
+
 
     # For winning preperation
     endgame = 0
     agent_sum = sum(agent_positions.values()) #total height for agent
     opp_sum = sum(opp_positions.values()) #total height for opp
-
-    #alinging and eat minus
-    # if agent_sum >= opp_sum + 5:
-    #     score -= 30 * len(opp_positions)
-    #     for (r, c), h in agent_positions.items():
-    #         for d in CARDINAL_DIRECTIONS:
-    #             nr = r + d.r
-    #             nc = c + d.c
-
-    #             if not (0 <= nr <= 7 and 0 <= nc <= 7):
-    #                 continue
-
-    #             if (nr, nc) in opp_positions:
-    #                 opp_h = opp_positions[(nr, nc)]
-
-    #                 if h > opp_h:
-    #                     score += 15 * opp_h
-    #                 elif h == opp_h:
-    #                     score += 7 * opp_h
     
     # to prevent draw, chase and eat more agressively
     if agent_stacks + opp_stacks <= 5:
@@ -569,12 +555,12 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 5 * (agent_stacks - opp_stacks)
     score -= 3 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
-    score += 40 * (agent_eat - opp_eat ) #40
+    score += 30 * (agent_eat - opp_eat ) #40
     #score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
-    score -= 9 * (agent_threat - opp_threat)
+    score -= 20 * (agent_threat - opp_threat)
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
-    score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
+    score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
     #score -= 30 * len(opp_positions)
     #score += 1 * ( agent_cascade_push - opp_cascade_push )
     score += endgame
@@ -629,7 +615,7 @@ def calculate_potential_risk_after_action(
                         break
 
                 # Can this enemy's cascade actually reach the new position
-                if step <= opponent_height:
+                if step <= opponent_height and opponent_height > 1:
                     # get pushed 1 cell further in the direction
                     push_steps = opponent_height - step + 1
                     pushed_r = r - direction.r * push_steps
