@@ -247,7 +247,9 @@ def heuristic_func(self,board,agent_color) -> int:
                     agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
                     agent_eat += opp_h #score for just potential eating
 
-                    opp_cascade_kill += (calculate_potential_cascade_after_eat(new_r, new_c, h, opp_positions)) // 2
+                    opp_cascade_after_eat, opp_eat_after_eat = calculate_potential_cascade_after_eat(new_r, new_c, h, opp_positions)
+                    opp_cascade_kill += opp_cascade_after_eat // 2
+                    opp_threat += opp_eat_after_eat // 2
 
                     if h > opp_h:
                         agent_safe_eat += opp_h
@@ -330,7 +332,9 @@ def heuristic_func(self,board,agent_color) -> int:
                     moves_count += 1
                     opp_eat_bonus += agent_h * 10
                     opp_eat += agent_h
-                    agent_cascade_kill += (calculate_potential_cascade_after_eat(new_r, new_c, h, agent_positions)) // 2
+                    agent_cascade_after_eat, agent_eat_after_eat = calculate_potential_cascade_after_eat(new_r, new_c, h, agent_positions)
+                    agent_cascade_kill += agent_cascade_after_eat // 2
+                    agent_threat += agent_eat_after_eat // 2
 
                     if h > opp_h:
                         opp_safe_eat += agent_h
@@ -564,12 +568,13 @@ def calculate_potential_cascade_after_eat(
     c: int,
     h: int, 
     opponent_position: dict[tuple[int, int], int],
-) -> int:
+) -> tuple[int, int]:
     """
     Check all direction within the same row and same column to check is there 
     any threat to be pushed off the board after eat an enemy token
     """
     cascade_risk = 0
+    eat_threat = 0
     for direction in CARDINAL_DIRECTIONS:
         step = 1
 
@@ -583,6 +588,11 @@ def calculate_potential_cascade_after_eat(
             if (new_r, new_c) in opponent_position:
                 opponent_height = opponent_position[(new_r, new_c)]
 
+                # enemy just next to us
+                if manhanttan_distance(Coord(new_r, new_c), Coord(r, c)) == 1:
+                    if opponent_height >= h:
+                        eat_threat += h
+
                 # Can this enemy's cascade actually reach the new position
                 if step <= opponent_height:
                     # get pushed 1 cell further in the direction
@@ -594,7 +604,7 @@ def calculate_potential_cascade_after_eat(
 
             step += 1
 
-    return cascade_risk
+    return cascade_risk, eat_threat
 
 def manhanttan_distance(
     coord_one: Coord, 
