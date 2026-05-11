@@ -253,7 +253,7 @@ def heuristic_func(self,board,agent_color) -> int:
                         agent_safe_eat += opp_h
 
                 if opp_h >= h:
-                    agent_threat += h #gonna be eaten by enemy
+                   agent_threat += h #gonna be eaten by enemy
 
             else:
                 moves_count += 1 #move to empty cell

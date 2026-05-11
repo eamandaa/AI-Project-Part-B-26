@@ -257,11 +257,11 @@ def heuristic_func(self,board,agent_color) -> int:
 
             else:
                 moves_count += 1 #move to empty cell
-                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                    new_r, new_c, h, opp_positions)
-                opp_cascade_kill += opp_cascade_after_merge // 2
-                agent_threat += opp_eat_after_merge // 2
-                agent_eat += agent_eat_after_merge // 2
+                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
+                #     new_r, new_c, h, opp_positions)
+                # opp_cascade_kill += opp_cascade_after_merge // 2
+                # agent_threat += opp_eat_after_merge // 2
+                # agent_eat += agent_eat_after_merge // 2
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
@@ -357,11 +357,11 @@ def heuristic_func(self,board,agent_color) -> int:
                     opp_threat += h
             else:
                 moves_count += 1
-                agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
-                        new_r, new_c, h, agent_positions)
-                agent_cascade_kill += agent_cascade_after_eat // 2
-                opp_threat += agent_eat_after_eat // 2
-                opp_eat += opp_eat_after_eat // 2
+                # agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
+                #         new_r, new_c, h, agent_positions)
+                # agent_cascade_kill += agent_cascade_after_eat // 2
+                # opp_threat += agent_eat_after_eat // 2
+                # opp_eat += opp_eat_after_eat // 2
 
         if moves_count<= 1:
             opp_trapped += 1
