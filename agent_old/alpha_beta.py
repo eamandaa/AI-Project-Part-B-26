@@ -171,7 +171,7 @@ def heuristic_func(self,board,agent_color) -> int:
     agent_cascade_push = 0
     opp_cascade_push = 0
 
-    agent_safe_eat = 0
+    agent_safe_eat = 0 #currently not use
     opp_safe_eat = 0
 
     agent_bad_cascade_risk = 0
@@ -552,10 +552,10 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 50 * (agent_total - opp_total)
 
     #Defensive mode
-    # losing = (agent_total <= opp_total - 3)
-    # if losing == True:
-    #     score -= 10 * agent_threat
-    #     score -= 7 * agent_trapped
+    losing = (agent_total <= opp_total - 3)
+    if losing == True:
+        score -= 10 * agent_threat
+        score -= 7 * agent_trapped
 
 
     score += 5 * (agent_largest - opp_largest)

@@ -257,11 +257,11 @@ def heuristic_func(self,board,agent_color) -> int:
 
             else:
                 moves_count += 1 #move to empty cell
-                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                    new_r, new_c, h, opp_positions)
-                opp_cascade_kill += opp_cascade_after_merge // 2
-                agent_threat += opp_eat_after_merge // 2
-                agent_eat += agent_eat_after_merge // 2
+                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
+                #     new_r, new_c, h, opp_positions)
+                # opp_cascade_kill += opp_cascade_after_merge // 2
+                # agent_threat += opp_eat_after_merge // 2
+                # agent_eat += agent_eat_after_merge // 2
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
@@ -357,11 +357,11 @@ def heuristic_func(self,board,agent_color) -> int:
                     opp_threat += h
             else:
                 moves_count += 1
-                agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
-                        new_r, new_c, h, agent_positions)
-                agent_cascade_kill += agent_cascade_after_eat // 2
-                opp_threat += agent_eat_after_eat // 2
-                opp_eat += opp_eat_after_eat // 2
+                # agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
+                #         new_r, new_c, h, agent_positions)
+                # agent_cascade_kill += agent_cascade_after_eat // 2
+                # opp_threat += agent_eat_after_eat // 2
+                # opp_eat += opp_eat_after_eat // 2
 
         if moves_count<= 1:
             opp_trapped += 1
@@ -562,10 +562,10 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 5 * (agent_stacks - opp_stacks)
     score -= 3 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
-    score += 30 * (agent_eat - opp_eat ) #40
+    score += 40 * (agent_eat - opp_eat ) #40
     #score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
-    score -= 20 * (agent_threat - opp_threat) #9
+    score -= 9 * (agent_threat - opp_threat) #9
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
     score -= 10 *  agent_bad_cascade_risk
@@ -888,10 +888,10 @@ def action_order_score(board, action):
         victim = board._state[target]
         attacker = board._state[coord]
 
-        if not victim.is_empty and not attacker.is_empty:
-            return 10000 + (victim.height / attacker.height) * 100
+        # if not victim.is_empty and not attacker.is_empty:
+        return 10000 + (victim.height / attacker.height) * 100
 
-        return 10000
+        #return 10000
 
     if isinstance(action, CascadeAction):
         h = board._state[coord].height
