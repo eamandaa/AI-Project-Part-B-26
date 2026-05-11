@@ -288,7 +288,7 @@ def heuristic_func(self,board,agent_color) -> int:
                             agent_cascade_kill += enemy_height
                         else:
                             
-                            agent_bad_cascade_risk += enemy_height * 2
+                            agent_bad_cascade_risk += enemy_height * 1.5
                         #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
                         #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
@@ -388,7 +388,7 @@ def heuristic_func(self,board,agent_color) -> int:
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
                             opp_cascade_kill += enemy_height
                         else:
-                            opp_bad_cascade_risk += enemy_height * 2
+                            opp_bad_cascade_risk += enemy_height * 1.5
                         #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
                         #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
