@@ -697,4 +697,5 @@ def min_max_algo_with_time(
         score_flag = ScoreFlag.EXACT
 
     transposition_table[hash_key] = (depth, best_score, score_flag, best_move)
-    return best_score   
+    return best_score           
+            

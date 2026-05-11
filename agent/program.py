@@ -132,9 +132,9 @@ class Agent:
                 action = iterative_deepening_play(self,self._board, self._color, time_limit=3)
                 #print("Testing: RED is playing a MOVE action")
                 if referee["time_remaining"] is not None:
-                        print(f"time remaining for BLUE = {referee["time_remaining"]}")
+                        print(f"time remaining for RED = {referee["time_remaining"]}")
                 if referee['space_remaining'] is not None:
-                    print(f"space remaining for BLUE = {referee["space_remaining"]}")
+                    print(f"space remaining for RED = {referee["space_remaining"]}")
                 return action
             case PlayerColor.BLUE:
                 action = iterative_deepening_play(self,self._board,self._color, time_limit=3)
@@ -176,5 +176,6 @@ class Agent:
 
         self._board.apply_action(action)
         # print(f"Cells for {self._color} = {self._cells}")
+
 
    

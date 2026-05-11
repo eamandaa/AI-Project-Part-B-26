@@ -77,7 +77,9 @@ def compute_hash(
         height = cell_state.height - 1
         h ^= ZOBRSIT_TABLE[curr_coord.r][curr_coord.c][colour][height]
 
-    if board._turn_color == PlayerColor.RED:
-        h ^= TURN_KEY
+        if board._turn_color == PlayerColor.RED:
+            turn_key = TURN_KEY
+            h ^= turn_key
 
     return h
+
