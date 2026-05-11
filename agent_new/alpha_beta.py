@@ -233,21 +233,21 @@ def heuristic_func(self,board,agent_color) -> int:
                     new_r, new_c, new_height, opp_positions)
                 opp_cascade_kill += opp_cascade_after_merge // 2
                 agent_threat += opp_eat_after_merge // 2
-                #agent_eat += agent_eat_after_merge // 2
+                agent_eat += agent_eat_after_merge // 2
 
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
                     moves_count += 1
                     # agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
-                    agent_eat_bonus += (opp_h / h) * 10
+                    agent_eat_bonus += (opp_h/h) * 15
                     agent_eat += opp_h #score for just potential eating
 
                     opp_cascade_after_eat, opp_eat_after_eat, agent_eat_after_eat = calculate_potential_risk_after_action(
                         new_r, new_c, h, opp_positions)
                     opp_cascade_kill += opp_cascade_after_eat // 2
                     agent_threat += opp_eat_after_eat // 2
-                    #agent_eat += agent_eat_after_eat // 2
+                    agent_eat += agent_eat_after_eat // 2
 
                     if h > opp_h:
                         agent_safe_eat += opp_h
@@ -257,11 +257,11 @@ def heuristic_func(self,board,agent_color) -> int:
 
             else:
                 moves_count += 1 #move to empty cell
-                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                #     new_r, new_c, h, opp_positions)
-                # opp_cascade_kill += opp_cascade_after_merge // 2
-                # agent_threat += opp_eat_after_merge // 2
-                # agent_eat += agent_eat_after_merge // 2
+                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
+                    new_r, new_c, h, opp_positions)
+                opp_cascade_kill += opp_cascade_after_merge // 2
+                agent_threat += opp_eat_after_merge // 2
+                agent_eat += agent_eat_after_merge // 2
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
@@ -322,7 +322,7 @@ def heuristic_func(self,board,agent_color) -> int:
                     new_r, new_c, new_height, agent_positions)
                 agent_cascade_kill += agent_cascade_after_merge // 2
                 opp_threat += agent_eat_after_merge // 2
-               # opp_eat += opp_eat_after_merge // 2
+                opp_eat += opp_eat_after_merge // 2
 
                 # # not immediate eat threat and eat benefit 
                 # for adj_d in CARDINAL_DIRECTIONS:
@@ -341,14 +341,14 @@ def heuristic_func(self,board,agent_color) -> int:
                 agent_h = agent_positions[(new_r, new_c)]
                 if h >= agent_h:
                     moves_count += 1
-                    opp_eat_bonus += (agent_h / h) * 10
+                    opp_eat_bonus += (agent_h/h) * 15
                     opp_eat += agent_h
                     
                     agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
                         new_r, new_c, h, agent_positions)
                     agent_cascade_kill += agent_cascade_after_eat // 2
                     opp_threat += agent_eat_after_eat // 2
-                    #opp_eat += opp_eat_after_eat // 2
+                    opp_eat += opp_eat_after_eat // 2
 
                     if h > agent_h:
                         opp_safe_eat += agent_h
@@ -357,11 +357,11 @@ def heuristic_func(self,board,agent_color) -> int:
                     opp_threat += h
             else:
                 moves_count += 1
-                # agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
-                #         new_r, new_c, h, agent_positions)
-                # agent_cascade_kill += agent_cascade_after_eat // 2
-                # opp_threat += agent_eat_after_eat // 2
-                # opp_eat += opp_eat_after_eat // 2
+                agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
+                        new_r, new_c, h, agent_positions)
+                agent_cascade_kill += agent_cascade_after_eat // 2
+                opp_threat += agent_eat_after_eat // 2
+                opp_eat += opp_eat_after_eat // 2
 
         if moves_count<= 1:
             opp_trapped += 1
@@ -698,7 +698,7 @@ def iterative_deepening_play(
         )
 
         if action is None or time.time() - start > time_limit:
-            print(f"Timed out at depth {depth}, using depth {depth-1} result")
+            print(f"Timed out at depth {depth}, using depth {depth-1} result for new agent")
             break
         
         best_action = action
