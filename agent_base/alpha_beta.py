@@ -448,7 +448,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
-    if len(opp_positions) <= 4 and (agent_sum > opp_sum + 2): #condition for end game #try vs each other with +1,2 and none
+    if  (len(opp_positions) <= 4 and agent_sum >= opp_sum + 2): #condition for end game #try vs each other with +1,2 and none #len(opp_positions) <= 4 and
 
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
@@ -559,14 +559,15 @@ def heuristic_func(self,board,agent_color) -> int:
 
 
     score += 5 * (agent_largest - opp_largest)
-    score += 5 * (agent_stacks - opp_stacks)
-    score -= 3 * (agent_edge - opp_edge)
+    #score += 5 * (agent_stacks - opp_stacks)
+    #score -= 3 * (agent_edge - opp_edge)
     score -= 8 * (agent_trapped -opp_trapped )
     score += 40 * (agent_eat - opp_eat ) #40
-    #score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
+    score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
     score += 2 * (agent_eat_bonus- opp_eat_bonus) 
-    score -= 15 * agent_threat
-    score += 10 * opp_threat
+    # score -= 15 * agent_threat
+    # score += 10 * opp_threat
+    score += 8 * (opp_threat - agent_threat)
     score += 30 * (agent_cascade_kill - opp_cascade_kill)
     score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
     score -= 10 *  agent_bad_cascade_risk
@@ -759,6 +760,21 @@ def minimax_root(
                 ) 
                 current_hash = board._board_hash()
                 count_repetition = board._position_history.count(current_hash) >= 3
+
+                
+                if isinstance(action, EatAction):
+                    src = action.coord
+                    d = action.direction
+                    dst = Coord(src.r + d.r, src.c + d.c)
+
+                    attacker = board._state[src]
+                    victim = board._state[dst]
+
+                    if attacker.height > victim.height:
+                        curr_score += 5000
+                    else:
+                        curr_score += 1500
+                
             except TimeoutError:
                 board.undo_action()
                 raise
@@ -890,8 +906,8 @@ def action_order_score(board, action):
         attacker = board._state[coord]
 
         # if not victim.is_empty and not attacker.is_empty:
-        return 10000 + (victim.height / attacker.height) * 100
-
+        #return 10000 + (victim.height / attacker.height) * 100
+        return 10000 + (attacker.height - victim.height) * 100 + victim.height * 10 #added this
         #return 10000
 
     if isinstance(action, CascadeAction):

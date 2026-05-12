@@ -448,7 +448,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
-    if len(opp_positions) <= 2 and (agent_sum > opp_sum + 1): #condition for end game #try vs each other with +1,2 and none
+    if len(opp_positions) <= 4 and (agent_sum > opp_sum + 1): #condition for end game #try vs each other with +1,2 and none
 
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
@@ -549,7 +549,7 @@ def heuristic_func(self,board,agent_color) -> int:
         #score += 75 * (agent_total - opp_total)
         score -= 30 * opp_total
     #else:
-    score += 30 * (agent_total - opp_total)
+    #score += 30 * (agent_total - opp_total)
 
     #Defensive mode
     # losing = (agent_total <= opp_total - 3)
@@ -559,11 +559,11 @@ def heuristic_func(self,board,agent_color) -> int:
 
 
     score += 100 * (agent_total - opp_total)
-    score += 50 * (agent_safe_eat - opp_safe_eat)
+    score += 50 * (agent_eat - opp_eat)
     score += 20 * (opp_threat - agent_threat)
     score += 12 * (agent_cascade_kill - opp_cascade_kill)
     score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
-    score += 6 * (agent_trapped - opp_trapped)
+    score -= 6 * (agent_trapped - opp_trapped)
     score += endgame
     return score
 
@@ -882,7 +882,7 @@ def action_order_score(board, action):
         attacker = board._state[coord]
 
         # if not victim.is_empty and not attacker.is_empty:
-        return 10000 + (victim.height / attacker.height) * 100
+        return 10000 + (attacker.height - victim.height) * 100 + victim.height * 10 #added this
 
         #return 10000
 
