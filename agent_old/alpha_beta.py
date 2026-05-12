@@ -518,22 +518,31 @@ def heuristic_func(self,board,agent_color) -> int:
     #     score -= 7 * agent_trapped
 
 
-    score += 5 * (agent_largest - opp_largest)
-    score += 5 * (agent_stacks - opp_stacks)
-    score -= 3 * (agent_edge - opp_edge)
-    score -= 8 * (agent_trapped -opp_trapped )
-    score += 40 * (agent_eat - opp_eat ) #40
-    #score += 20 * (agent_safe_eat - opp_safe_eat) #safe use but bonus not
-    score += 2 * (agent_eat_bonus- opp_eat_bonus)  #
-    #score -= 9 * (agent_threat - opp_threat)
-    score -= 10 *  agent_bad_cascade_risk
-    score += 9 *  opp_bad_cascade_risk
-    score -= 30 * agent_threat
-    score += 10 * opp_threat
-    score += 30 * (agent_cascade_kill - opp_cascade_kill)
-    score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
-    #score -= 30 * len(opp_positions)
-    #score += 1 * ( agent_cascade_push - opp_cascade_push )
+    # score += 5 * (agent_largest - opp_largest)
+    # score += 5 * (agent_stacks - opp_stacks)
+    # score -= 3 * (agent_edge - opp_edge)
+    # score -= 8 * (agent_trapped -opp_trapped )
+    # score += 40 * (agent_eat - opp_eat ) #40
+    # #score += 20 * (agent_safe_eat - opp_safe_eat) #safe use but bonus not
+    # score += 2 * (agent_eat_bonus- opp_eat_bonus)  #
+    # #score -= 9 * (agent_threat - opp_threat)
+    # score -= 10 *  agent_bad_cascade_risk
+    # score += 9 *  opp_bad_cascade_risk
+    # score -= 30 * agent_threat
+    # score += 10 * opp_threat
+    # score += 30 * (agent_cascade_kill - opp_cascade_kill)
+    # score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
+    # #score -= 30 * len(opp_positions)
+    # #score += 1 * ( agent_cascade_push - opp_cascade_push )
+    # score += endgame
+
+
+    score += 100 * (agent_total - opp_total)
+    score += 50 * (agent_safe_eat - opp_safe_eat)
+    score += 20 * (opp_threat - agent_threat)
+    score += 12 * (agent_cascade_kill - opp_cascade_kill)
+    score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
+    score += 6 * (agent_trapped - opp_trapped)
     score += endgame
 
     return score
