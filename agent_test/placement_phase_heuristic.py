@@ -377,17 +377,3 @@ def min_max_algo(
 
         return best_score
     return 0
-
-
-
-    
-
-
-    
-
-    
-
-    
-
-
-
