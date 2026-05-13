@@ -459,7 +459,7 @@ def heuristic_func(self,board,agent_color) -> int:
             stronger_hunters_near = 0
             blocked_sides = 0 #trapping enemy by how many is it blocks
             free_sides = 0 #how many sides are free
-
+            imm_eat = 0
             # Count blocked escape squares around enemy
             for d in CARDINAL_DIRECTIONS:
                 nr = opp_r + d.r
@@ -486,6 +486,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
                 if dist == 1 and h >= opp_h:
                     hunters_adjacent += 1 #potential eat immidiately without movement
+                    imm_eat += opp_h
 
                 if dist <= 3 and h >= opp_h:
                     stronger_hunters_near += 1 #potential eat but require movement
@@ -522,7 +523,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
                             # bigger reward if cascade can push enemy off board
                             if push_steps > dist_to_edge:
-                                endgame += 180 * opp_h
+                                endgame += 200 * opp_h
                             else:
                                 endgame += 15 * opp_h #try 15 next
 
@@ -536,6 +537,7 @@ def heuristic_func(self,board,agent_color) -> int:
             # Reward trapping
             endgame += blocked_sides * 40
             endgame -= free_sides * 15
+            endgame += imm_eat * 250
 
             # Reward actual capture pressure
             endgame += hunters_adjacent * 100
@@ -761,19 +763,6 @@ def minimax_root(
                 current_hash = board._board_hash()
                 count_repetition = board._position_history.count(current_hash) >= 3
 
-                
-                if isinstance(action, EatAction):
-                    src = action.coord
-                    d = action.direction
-                    dst = Coord(src.r + d.r, src.c + d.c)
-
-                    attacker = board._state[src]
-                    victim = board._state[dst]
-
-                    if attacker.height > victim.height:
-                        curr_score += 5000
-                    else:
-                        curr_score += 1500
                 
             except TimeoutError:
                 board.undo_action()

@@ -177,6 +177,11 @@ def heuristic_func(self,board,agent_color) -> int:
     agent_bad_cascade_risk = 0
     opp_bad_cascade_risk = 0
 
+    # penalise if we are having too many height 1 stack
+    # height 1 stack gives us mobility, but expose to higher danger of being eaten 
+    agent_fragile_score = 0
+    opp_fragile_score = 0
+
     score = 0
 
     agent_positions = {}
@@ -194,28 +199,32 @@ def heuristic_func(self,board,agent_color) -> int:
         if is_agent:
             agent_positions[(r,c)] = h
             agent_total += h
-            agent_stacks += 1
-            if h > agent_largest:
-                agent_largest = h
+            # agent_stacks += 1
+            # if h > agent_largest:
+            #     agent_largest = h
+            if h == 1:
+                agent_fragile_score += 1
         else:
             opp_positions[(r,c)] = h
             opp_total += h
-            opp_stacks += 1
-            if h > opp_largest:
-                opp_largest = h
+            # opp_stacks += 1
+            # if h > opp_largest:
+            #     opp_largest = h
+            if h == 1: 
+                opp_fragile_score += 1
 
         #scoring for the edges
-        edge_dist = min(r, 7-r, c,7-c)
-        if edge_dist == 0:
-            if is_agent:
-                agent_edge += 4 * h
-            else:
-                opp_edge += 4 * h
-        elif edge_dist == 1:
-            if is_agent:
-                agent_edge += 2 * h
-            else:
-                opp_edge += 2 * h
+        # edge_dist = min(r, 7-r, c,7-c)
+        # if edge_dist == 0:
+        #     if is_agent:
+        #         agent_edge += 4 * h
+        #     else:
+        #         opp_edge += 4 * h
+        # elif edge_dist == 1:
+        #     if is_agent:
+        #         agent_edge += 2 * h
+        #     else:
+        #         opp_edge += 2 * h
 
     #Eat calculations including 3 and 4 and 
     for (r,c), h in agent_positions.items():
@@ -252,16 +261,17 @@ def heuristic_func(self,board,agent_color) -> int:
                     if h > opp_h:
                         agent_safe_eat += opp_h
 
-                if opp_h >= h:
+                # if opp_h >= h:
+                else:
                    agent_threat += h #gonna be eaten by enemy
 
             else:
                 moves_count += 1 #move to empty cell
-                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                #     new_r, new_c, h, opp_positions)
-                # opp_cascade_kill += opp_cascade_after_merge // 2
-                # agent_threat += opp_eat_after_merge // 2
-                # agent_eat += agent_eat_after_merge // 2
+                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
+                    new_r, new_c, h, opp_positions)
+                opp_cascade_kill += opp_cascade_after_merge // 2
+                agent_threat += opp_eat_after_merge // 2
+                agent_eat += agent_eat_after_merge // 2
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
@@ -353,15 +363,16 @@ def heuristic_func(self,board,agent_color) -> int:
                     if h > agent_h:
                         opp_safe_eat += agent_h
 
-                if agent_h >= h:
+                # if agent_h >= h:
+                else:
                     opp_threat += h
             else:
                 moves_count += 1
-                # agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
-                #         new_r, new_c, h, agent_positions)
-                # agent_cascade_kill += agent_cascade_after_eat // 2
-                # opp_threat += agent_eat_after_eat // 2
-                # opp_eat += opp_eat_after_eat // 2
+                agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
+                        new_r, new_c, h, agent_positions)
+                agent_cascade_kill += agent_cascade_after_eat // 2
+                opp_threat += agent_eat_after_eat // 2
+                opp_eat += opp_eat_after_eat // 2
 
         if moves_count<= 1:
             opp_trapped += 1
@@ -522,7 +533,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
                             # bigger reward if cascade can push enemy off board
                             if push_steps > dist_to_edge:
-                                endgame += 200 * opp_h
+                                endgame += 180 * opp_h
                             else:
                                 endgame += 15 * opp_h #try 15 next
 
@@ -539,9 +550,10 @@ def heuristic_func(self,board,agent_color) -> int:
 
             # Reward actual capture pressure
             endgame += hunters_adjacent * 100
+            endgame += imm_eat * 180
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
-            endgame += imm_eat * 250
+        
 
 
     play_turns = len(board._position_history) #N
@@ -559,12 +571,12 @@ def heuristic_func(self,board,agent_color) -> int:
 
 
     score += 100 * (agent_total - opp_total)
-    score += 50 * (agent_eat - opp_eat)
-    #score += 50 * (agent_safe_eat - opp_safe_eat)
+    score += 20 * (agent_eat - opp_eat)
     score += 20 * (opp_threat - agent_threat)
-    score += 12 * (agent_cascade_kill - opp_cascade_kill)
-    score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
+    score += 15 * (agent_cascade_kill - opp_cascade_kill)
+    score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
     score -= 6 * (agent_trapped - opp_trapped)
+    score += 2 * (opp_fragile_score - agent_fragile_score)
     score += endgame
     return score
 
@@ -574,7 +586,7 @@ def calculate_potential_risk_after_action(
     c: int,
     h: int, 
     opponent_position: dict[tuple[int, int], int],
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     """
     Check all direction within the same row and same column to check is there 
     any threat to be pushed off the board or being eaten after performing an action
@@ -591,6 +603,9 @@ def calculate_potential_risk_after_action(
 
             if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
                 break
+
+            if new_r == r and new_c == c:
+                continue
 
             if (new_r, new_c) in opponent_position:
                 opponent_height = opponent_position[(new_r, new_c)]
@@ -629,7 +644,6 @@ def manhanttan_distance(
     return abs(coord_one.r - coord_two.r) + abs(coord_one.c - coord_two.c)
 
 def all_legal_actions(self,board) -> list[Action]:
-    start  = time.time()
     eat_actions = []
     cascade_actions = []
     move_actions = []
@@ -671,7 +685,6 @@ def all_legal_actions(self,board) -> list[Action]:
 
     actions = eat_actions + cascade_actions + move_actions
     actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
-    # print(f"Generating possible action with condition check is {time.time() - start}")
     return actions
 
 def iterative_deepening_play(
@@ -740,7 +753,6 @@ def minimax_root(
             try:
                 curr_score = min_max_algo_with_time(
                     self,
-                    # changed this part 
                     maximizing, 
                     board, 
                     depth-1, 
@@ -882,10 +894,9 @@ def action_order_score(board, action):
         victim = board._state[target]
         attacker = board._state[coord]
 
-        # if not victim.is_empty and not attacker.is_empty:
-        return 10000 + (attacker.height - victim.height) * 100 + victim.height * 10 #added this
-
-        #return 10000
+        # having higher attacker -> less chance of being counter eaten
+        # victim.height * 10 -> eat bigger enemy -> more beneficial 
+        return 10000 + (attacker.height - victim.height) * 100 + victim.height * 10
 
     if isinstance(action, CascadeAction):
         h = board._state[coord].height

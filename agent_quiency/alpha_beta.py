@@ -459,7 +459,7 @@ def heuristic_func(self,board,agent_color) -> int:
             stronger_hunters_near = 0
             blocked_sides = 0 #trapping enemy by how many is it blocks
             free_sides = 0 #how many sides are free
-            imm_eat = 0
+
             # Count blocked escape squares around enemy
             for d in CARDINAL_DIRECTIONS:
                 nr = opp_r + d.r
@@ -486,7 +486,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
                 if dist == 1 and h >= opp_h:
                     hunters_adjacent += 1 #potential eat immidiately without movement
-                    imm_eat += opp_h
+
                 if dist <= 3 and h >= opp_h:
                     stronger_hunters_near += 1 #potential eat but require movement
 
@@ -522,7 +522,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
                             # bigger reward if cascade can push enemy off board
                             if push_steps > dist_to_edge:
-                                endgame += 200 * opp_h
+                                endgame += 180 * opp_h
                             else:
                                 endgame += 15 * opp_h #try 15 next
 
@@ -541,7 +541,7 @@ def heuristic_func(self,board,agent_color) -> int:
             endgame += hunters_adjacent * 100
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
-            endgame += imm_eat * 250
+        
 
 
     play_turns = len(board._position_history) #N
@@ -559,8 +559,8 @@ def heuristic_func(self,board,agent_color) -> int:
 
 
     score += 100 * (agent_total - opp_total)
-    score += 50 * (agent_eat - opp_eat)
-    #score += 50 * (agent_safe_eat - opp_safe_eat)
+    #score += 50 * (agent_eat - opp_eat)
+    score += 50 * (agent_safe_eat - opp_safe_eat)
     score += 20 * (opp_threat - agent_threat)
     score += 12 * (agent_cascade_kill - opp_cascade_kill)
     score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
@@ -805,13 +805,30 @@ def min_max_algo_with_time(
         
         tt_move = stored_best_move
 
-    #Move, eat and cascade
-    #Red always goes first -> Max
-    if board.game_over or (not board._has_legal_actions()) or depth == 0:
-        value =  heuristic_func(self,board,self._color)
+    # #Move, eat and cascade
+    # #Red always goes first -> Max
+    # if board.game_over or (not board._has_legal_actions()) or depth == 0:
+    #     value =  heuristic_func(self,board,self._color)
+    #     self._tranposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
+    #     return value
+    if board.game_over or (not board._has_legal_actions()):
+        value = heuristic_func(self, board, self._color)
         self._tranposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
         return value
-    
+
+    if depth == 0:
+        value = quiescence_eat_only(
+            self,
+            board,
+            alpha,
+            beta,
+            agent_colour,
+            start_time,
+            time_limit,
+            q_depth=2,
+        )
+        return value
+        
     possible_actions = all_legal_actions(self,board)
 
     if tt_move is not None and tt_move in possible_actions:
@@ -911,3 +928,102 @@ def action_order_score(board, action):
             return 10 * (board._state[target].height + board._state[coord].height)
 
     return 0
+
+
+def tactical_eat_actions(self, board: Board) -> list[Action]:
+    actions = all_legal_actions(self, board)
+    return [a for a in actions if isinstance(a, CascadeAction)]
+
+def quiescence_eat_only(
+    self,
+    board: Board,
+    alpha: float,
+    beta: float,
+    agent_colour: PlayerColor,
+    start_time: float,
+    time_limit: float,
+    q_depth: int = 2,
+) -> int:
+    if (time.time() - start_time) > time_limit:
+        raise TimeoutError()
+
+    stand_pat = heuristic_func(self, board, self._color)
+
+    maximizing_now = (board.turn_color == agent_colour)
+
+    if maximizing_now:
+        if stand_pat >= beta:
+            return stand_pat
+        alpha = max(alpha, stand_pat)
+    else:
+        if stand_pat <= alpha:
+            return stand_pat
+        beta = min(beta, stand_pat)
+
+    if q_depth <= 0 or board.game_over or (not board._has_legal_actions()):
+        return stand_pat
+
+    eat_actions = tactical_eat_actions(self, board)
+    if not eat_actions:
+        return stand_pat
+
+    eat_actions.sort(key=lambda a: (-action_order_score(board, a), str(a)))
+
+    if maximizing_now:
+        best_score = stand_pat
+
+        for action in eat_actions:
+            board.apply_action(action)
+            try:
+                score = quiescence_eat_only(
+                    self,
+                    board,
+                    alpha,
+                    beta,
+                    agent_colour,
+                    start_time,
+                    time_limit,
+                    q_depth=q_depth - 1,
+                )
+            except TimeoutError:
+                board.undo_action()
+                raise
+            board.undo_action()
+
+            if score > best_score:
+                best_score = score
+
+            alpha = max(alpha, best_score)
+            if alpha >= beta:
+                break
+
+        return best_score
+
+    best_score = stand_pat
+
+    for action in eat_actions:
+        board.apply_action(action)
+        try:
+            score = quiescence_eat_only(
+                self,
+                board,
+                alpha,
+                beta,
+                agent_colour,
+                start_time,
+                time_limit,
+                q_depth=q_depth - 1,
+            )
+        except TimeoutError:
+            board.undo_action()
+            raise
+        board.undo_action()
+
+        if score < best_score:
+            best_score = score
+
+        beta = min(beta, best_score)
+        if alpha >= beta:
+            break
+
+    return best_score
