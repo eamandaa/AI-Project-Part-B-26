@@ -568,7 +568,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     score += 100 * (agent_total - opp_total)
     score += 50 * (agent_eat - opp_eat)
-    score += 50 * (agent_safe_eat - opp_safe_eat)
+    #score += 50 * (agent_safe_eat - opp_safe_eat)
     score += 20 * (opp_threat - agent_threat)
     score += 20 * (agent_cascade_kill - opp_cascade_kill)
     score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
@@ -903,10 +903,9 @@ def action_order_score(board, action):
         victim = board._state[target]
         attacker = board._state[coord]
 
-        # if not victim.is_empty and not attacker.is_empty:
-        return 10000 + (attacker.height - victim.height) * 100 + victim.height * 10 #added this
-
-        #return 10000
+        # having higher attacker -> less chance of being counter eaten
+        # victim.height * 10 -> eat bigger enemy -> more beneficial
+        return 10000 + (attacker.height - victim.height) * 100 + victim.height * 10
 
     if isinstance(action, CascadeAction):
         h = board._state[coord].height
@@ -926,9 +925,27 @@ def action_order_score(board, action):
 
     if isinstance(action, MoveAction):
         target = Coord(coord.r + d.r, coord.c + d.c)
-
+       
+        score = 0
         # if merge is available
         if not board._state[target].is_empty:
-            return 10 * (board._state[target].height + board._state[coord].height)
+            merge_height = (board._state[target].height + board._state[coord].height)
+            merge_score = 10 * (board._state[target].height + board._state[coord].height)
+
+            score += merge_score
+
+            for direction in CARDINAL_DIRECTIONS:
+                adj_r = target.r + direction.r
+                adj_c = target.c + direction.c
+
+                if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7):
+                    continue
+
+                adj = Coord(adj_r, adj_c)
+
+                if not board._state[adj].is_empty and board._state[adj].color != board.turn_color and board._state[adj].height >= merge_height:
+                    score -= board._state[adj].height 
+
+            return score
 
     return 0

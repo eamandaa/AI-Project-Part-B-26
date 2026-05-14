@@ -664,9 +664,6 @@ def endgame_score(agent_positions, opp_positions):
     return endgame
 
 
-# ============================================================
-# MAIN HEURISTIC FUNCTION
-# ============================================================
 
 def heuristic_func(self, board, agent_color) -> int:
     if agent_color == PlayerColor.RED:
