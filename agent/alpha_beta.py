@@ -231,9 +231,9 @@ def heuristic_func(self,board,agent_color) -> int:
 
                 opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
                     new_r, new_c, new_height, opp_positions)
-                opp_cascade_kill += opp_cascade_after_merge // 2
-                agent_threat += opp_eat_after_merge // 2
-                agent_eat += agent_eat_after_merge // 2
+                opp_cascade_kill += opp_cascade_after_merge 
+                agent_threat += opp_eat_after_merge 
+                agent_eat += agent_eat_after_merge 
 
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
@@ -245,9 +245,9 @@ def heuristic_func(self,board,agent_color) -> int:
 
                     opp_cascade_after_eat, opp_eat_after_eat, agent_eat_after_eat = calculate_potential_risk_after_action(
                         new_r, new_c, h, opp_positions)
-                    opp_cascade_kill += opp_cascade_after_eat // 2
-                    agent_threat += opp_eat_after_eat // 2
-                    agent_eat += agent_eat_after_eat // 2
+                    opp_cascade_kill += opp_cascade_after_eat 
+                    agent_threat += opp_eat_after_eat 
+                    agent_eat += agent_eat_after_eat /
 
                     if h > opp_h:
                         agent_safe_eat += opp_h
@@ -320,9 +320,9 @@ def heuristic_func(self,board,agent_color) -> int:
 
                 agent_cascade_after_merge, agent_eat_after_merge, opp_eat_after_merge = calculate_potential_risk_after_action(
                     new_r, new_c, new_height, agent_positions)
-                agent_cascade_kill += agent_cascade_after_merge // 2
-                opp_threat += agent_eat_after_merge // 2
-                opp_eat += opp_eat_after_merge // 2
+                agent_cascade_kill += agent_cascade_after_merge 
+                opp_threat += agent_eat_after_merge 
+                opp_eat += opp_eat_after_merge 
 
                 # # not immediate eat threat and eat benefit 
                 # for adj_d in CARDINAL_DIRECTIONS:
@@ -346,9 +346,9 @@ def heuristic_func(self,board,agent_color) -> int:
                     
                     agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
                         new_r, new_c, h, agent_positions)
-                    agent_cascade_kill += agent_cascade_after_eat // 2
-                    opp_threat += agent_eat_after_eat // 2
-                    opp_eat += opp_eat_after_eat // 2
+                    agent_cascade_kill += agent_cascade_after_eat 
+                    opp_threat += agent_eat_after_eat 
+                    opp_eat += opp_eat_after_eat 
 
                     if h > agent_h:
                         opp_safe_eat += agent_h
@@ -487,7 +487,7 @@ def heuristic_func(self,board,agent_color) -> int:
                 if dist == 1 and h >= opp_h:
                     hunters_adjacent += 1 #potential eat immidiately without movement
                     imm_eat += opp_h
-                if dist <= 3 and h >= opp_h:
+                if 1 < dist <= 3 and h >= opp_h:
                     stronger_hunters_near += 1 #potential eat but require movement
 
                 if h < opp_h and dist <= 2:
@@ -560,10 +560,10 @@ def heuristic_func(self,board,agent_color) -> int:
 
     score += 100 * (agent_total - opp_total)
     score += 50 * (agent_eat - opp_eat)
-    #score += 50 * (agent_safe_eat - opp_safe_eat)
+    score += 50 * (agent_safe_eat - opp_safe_eat)
     score += 20 * (opp_threat - agent_threat)
-    score += 12 * (agent_cascade_kill - opp_cascade_kill)
-    score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
+    score += 20 * (agent_cascade_kill - opp_cascade_kill)
+    score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
     score -= 6 * (agent_trapped - opp_trapped)
     score += endgame
     return score
