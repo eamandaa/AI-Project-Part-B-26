@@ -247,7 +247,7 @@ def heuristic_func(self,board,agent_color) -> int:
                         new_r, new_c, h, opp_positions)
                     opp_cascade_kill += opp_cascade_after_eat 
                     agent_threat += opp_eat_after_eat 
-                    agent_eat += agent_eat_after_eat /
+                    agent_eat += agent_eat_after_eat 
 
                     if h > opp_h:
                         agent_safe_eat += opp_h
