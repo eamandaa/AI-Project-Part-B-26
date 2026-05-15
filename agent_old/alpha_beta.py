@@ -408,7 +408,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
-    if len(opp_positions) <= 2 and (agent_sum > opp_sum + 1): #condition for end game #try vs each other with +1,2 and none
+    if len(opp_positions) <= 2 and (agent_sum > opp_sum + 1): #condition for end game #try vs each other with +1,2 and none #ori 2 new is 4
 
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
@@ -512,7 +512,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 40 * (agent_total - opp_total)
 
     #Defensive mode
-    # losing = (agent_total <= opp_total - 3)
+    # losing = (agent_total <= op p_total - 3)
     # if losing == True:
     #     score -= 10 * agent_threat
     #     score -= 7 * agent_trapped
@@ -542,7 +542,7 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 20 * (opp_threat - agent_threat)
     score += 12 * (agent_cascade_kill - opp_cascade_kill)
     score -= 20 * (agent_cascade_self_loss - opp_cascade_self_loss)
-    score += 6 * (agent_trapped - opp_trapped)
+    score -= 6 * (agent_trapped - opp_trapped)
     score += endgame
 
     return score

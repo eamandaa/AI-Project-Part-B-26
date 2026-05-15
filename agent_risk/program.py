@@ -129,7 +129,7 @@ class Agent:
         
         match self._color:
             case PlayerColor.RED:
-                action = iterative_deepening_play(self,self._board, self._color, time_limit=2.7)
+                action = iterative_deepening_play(self,self._board, self._color, time_limit=2.8)
                 #print("Testing: RED is playing a MOVE action")
                 if referee["time_remaining"] is not None:
                         print(f"time remaining for RED = {referee["time_remaining"]}")
