@@ -456,7 +456,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
-    if len(opp_positions) <= 4 and (agent_sum > opp_sum + 1): #condition for end game #try vs each other with +1,2 and none
+    if len(opp_positions) <= 4 and (agent_sum > opp_sum ): #condition for end game #try vs each other with +1,2 and none
 
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
@@ -550,6 +550,15 @@ def heuristic_func(self,board,agent_color) -> int:
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
             endgame += imm_eat * 250
+    
+        agent_counterplay = endgame_counterplay_score(agent_positions, opp_positions)
+        opp_counterplay = endgame_counterplay_score(opp_positions, agent_positions)
+
+        if agent_stacks + opp_stacks <= 8:
+            score += 5 * (agent_counterplay - opp_counterplay)
+
+        elif agent_stacks + opp_stacks <= 5:
+            score += 10 * (agent_counterplay - opp_counterplay)
 
 
     play_turns = len(board._position_history) #N
@@ -582,13 +591,67 @@ def heuristic_func(self,board,agent_color) -> int:
     score += endgame
     return score
 
-def closest_edible_distance(my_positions, enemy_positions):
-    best = math.inf
-    for (r, c), h in my_positions.items():
-        for (er, ec), eh in enemy_positions.items():
-            if h >= eh:
-                best = min(best, abs(r - er) + abs(c - ec))
-    return None if best == math.inf else best
+def endgame_counterplay_score(
+    my_positions: dict[tuple[int, int], int],
+    opp_positions: dict[tuple[int, int], int],
+) -> int:
+    score = 0
+
+    if not my_positions or not opp_positions:
+        return 0
+
+    my_largest = max(my_positions.values())
+    opp_largest = max(opp_positions.values())
+
+    if opp_largest <= my_largest:
+        return 0
+
+    big_targets = [(pos, h) for pos, h in opp_positions.items() if h == opp_largest]
+
+    for (target_r, target_c), target_h in big_targets:
+        for (r, c), h in my_positions.items():
+            dist = abs(r - target_r) + abs(c - target_c)
+
+            # 1) reward friendly merges that can create a stack able to fight back
+            for d in CARDINAL_DIRECTIONS:
+                nr, nc = r + d.r, c + d.c
+                if (nr, nc) in my_positions:
+                    merged_h = h + my_positions[(nr, nc)]
+
+                    if merged_h >= target_h:
+                        merge_dist = abs(nr - target_r) + abs(nc - target_c)
+                        score += max(0, 8 - merge_dist) * 20
+                        score += 40
+
+            # 2) reward lining up a cascade push on the big enemy
+            if h >= 2 and (r == target_r or c == target_c):
+                line_dist = dist
+                if line_dist <= h:
+                    push_steps = h - line_dist + 1
+
+                    if r == target_r:
+                        if target_c > c:
+                            dist_to_edge = 7 - target_c
+                        else:
+                            dist_to_edge = target_c
+                    else:
+                        if target_r > r:
+                            dist_to_edge = 7 - target_r
+                        else:
+                            dist_to_edge = target_r
+
+                    score += max(0, 8 - line_dist) * 25
+
+                    if push_steps > dist_to_edge:
+                        score += 180 * target_h
+                    else:
+                        score += 30 * target_h
+
+            # 3) mild pressure for simply getting closer with support
+            if h + 1 >= target_h:
+                score += max(0, 6 - dist) * 8
+
+    return score
 
 def calculate_potential_risk_after_action(
     r: int,

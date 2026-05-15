@@ -456,7 +456,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
     #Endgame prep
     #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
-    if len(opp_positions) <= 4 and (agent_sum > opp_sum + 1): #condition for end game #try vs each other with +1,2 and none
+    if len(opp_positions) <= 4 and (agent_sum > opp_sum ): #condition for end game #try vs each other with +1,2 and none
 
         for (opp_r, opp_c), opp_h in opp_positions.items():
 
@@ -579,9 +579,16 @@ def heuristic_func(self,board,agent_color) -> int:
     # if imm_eat == 0 and opp_best_dist is not None:
     #     score -= max(0, 8 - opp_best_dist) * 35
 
-    score += endgame
-    return score
+    score += endgame 
+    return score 
 
+def closest_edible_distance(my_positions, enemy_positions):
+    best = math.inf
+    for (r, c), h in my_positions.items():
+        for (er, ec), eh in enemy_positions.items():
+            if h >= eh:
+                best = min(best, abs(r - er) + abs(c - ec))
+    return None if best == math.inf else best
 
 def calculate_potential_risk_after_action(
     r: int,
