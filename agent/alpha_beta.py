@@ -549,7 +549,7 @@ def heuristic_func(self,board,agent_color) -> int:
             endgame += hunters_adjacent * 100
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
-            endgame += imm_eat * 250
+            endgame += imm_eat * 300
 
 
     play_turns = len(board._position_history) #N

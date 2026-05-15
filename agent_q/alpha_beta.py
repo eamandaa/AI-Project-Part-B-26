@@ -416,8 +416,8 @@ def heuristic_func(self,board,agent_color) -> int:
     endgame = 0
     agent_sum = sum(agent_positions.values()) #total height for agent
     opp_sum = sum(opp_positions.values()) #total height for opp
-    # agent_best_dist = closest_edible_distance(agent_positions, opp_positions)
-    # opp_best_dist = closest_edible_distance(opp_positions, agent_positions)
+    agent_best_dist = closest_edible_distance(agent_positions, opp_positions)
+    opp_best_dist = closest_edible_distance(opp_positions, agent_positions)
 
     #alinging and eat minus
     # if agent_sum >= opp_sum + 5:
@@ -550,15 +550,6 @@ def heuristic_func(self,board,agent_color) -> int:
             endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
             endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
             endgame += imm_eat * 250
-    
-        agent_counterplay = endgame_counterplay_score(agent_positions, opp_positions)
-        opp_counterplay = endgame_counterplay_score(opp_positions, agent_positions)
-
-        if agent_stacks + opp_stacks <= 8:
-            score += 5 * (agent_counterplay - opp_counterplay)
-
-        elif agent_stacks + opp_stacks <= 5:
-            score += 10 * (agent_counterplay - opp_counterplay)
 
 
     play_turns = len(board._position_history) #N
@@ -582,14 +573,22 @@ def heuristic_func(self,board,agent_color) -> int:
     score += 20 * (agent_cascade_kill - opp_cascade_kill)
     score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
     score -= 6 * (agent_trapped - opp_trapped)
-    # if imm_eat == 0 and agent_best_dist is not None:
-    #     score += max(0, 8 - agent_best_dist) * 35
+    if  agent_best_dist is not None:
+        score += max(0, 8 - agent_best_dist) * 10
 
-    # if imm_eat == 0 and opp_best_dist is not None:
-    #     score -= max(0, 8 - opp_best_dist) * 35
+    if opp_best_dist is not None:
+        score -= max(0, 8 - opp_best_dist) * 10
 
-    score += endgame
-    return score
+    score += endgame 
+    return score 
+
+def closest_edible_distance(my_positions, enemy_positions):
+    best = math.inf
+    for (r, c), h in my_positions.items():
+        for (er, ec), eh in enemy_positions.items():
+            if h >= eh:
+                best = min(best, abs(r - er) + abs(c - ec))
+    return None if best == math.inf else best
 
 def endgame_counterplay_score(
     my_positions: dict[tuple[int, int], int],

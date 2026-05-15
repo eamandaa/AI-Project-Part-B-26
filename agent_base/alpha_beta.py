@@ -116,467 +116,591 @@ def min_max_algo(
     return best_score
 
 
-def heuristic_func(self,board,agent_color) -> int:
-    """
-    1. token count 2. height count 3. eat opp including bonus (eg prioritise larger height) 4. opp eat us 
-    5. cascade kill 6. cascadee self loss 7. edge score 8. threathed token 
-    9. trapped 10. endgame 11.  
+import math
 
-    #later can try adding score for pushing cascade too edge
-    """
+# Assumes these already exist:
+# PlayerColor, Coord, CARDINAL_DIRECTIONS
+
+
+# ============================================================
+# TOP BLUE STYLE HEURISTIC
+# Behaviour:
+# - spread pieces
+# - run from equal/stronger enemy
+# - eat safe targets
+# - avoid being cleaned up
+# - keep escape space
+# - use cascade pressure but avoid suicide
+# - build/merge if opponent has bigger stack
+# ============================================================
+
+
+def heuristic_func(self, board, agent_color) -> int:
     if agent_color == PlayerColor.RED:
         opp_color = PlayerColor.BLUE
     else:
         opp_color = PlayerColor.RED
-    
+
     if board.game_over:
         winner = board.winner_color
         if winner == agent_color:
-            return 100000  
+            return 100000
         elif winner == opp_color:
             return -100000
-        else: #DOUBLE CHECK FOR LATER - FOR TIE CONDITION
+        else:
             return -5000
-        
-    agent_total = 0
-    opp_total = 0
-
-    agent_largest = 0
-    opp_largest = 0
-
-    agent_stacks = 0
-    opp_stacks = 0
-
-    agent_edge = 0
-    opp_edge = 0
-
-    agent_trapped = 0
-    opp_trapped = 0
-
-    agent_eat = 0
-    opp_eat = 0
-
-    agent_eat_bonus = 0
-    opp_eat_bonus = 0
-
-    agent_threat = 0
-    opp_threat = 0
-    
-    agent_cascade_kill = 0
-    opp_cascade_kill = 0
-
-    agent_cascade_self_loss = 0
-    opp_cascade_self_loss = 0
-
-    agent_cascade_push = 0
-    opp_cascade_push = 0
-
-    agent_safe_eat = 0
-    opp_safe_eat = 0
-
-    agent_bad_cascade_risk = 0
-    opp_bad_cascade_risk = 0
-
-    score = 0
 
     agent_positions = {}
     opp_positions = {}
-
 
     for coord, cell in board._state.items():
         if cell.is_empty:
             continue
 
-        r,c = coord.r , coord.c
-        h = cell.height
-        is_agent = (cell.color == agent_color)
-        #track total height, number of tokens, and largest token height i have and the opponent
-        if is_agent:
-            agent_positions[(r,c)] = h
-            agent_total += h
-            agent_stacks += 1
-            if h > agent_largest:
-                agent_largest = h
+        pos = (coord.r, coord.c)
+
+        if cell.color == agent_color:
+            agent_positions[pos] = cell.height
         else:
-            opp_positions[(r,c)] = h
-            opp_total += h
-            opp_stacks += 1
-            if h > opp_largest:
-                opp_largest = h
+            opp_positions[pos] = cell.height
 
-        #scoring for the edges
-        edge_dist = min(r, 7-r, c,7-c)
+    if not agent_positions:
+        return -100000
+
+    if not opp_positions:
+        return 100000
+
+    agent_total = sum(agent_positions.values())
+    opp_total = sum(opp_positions.values())
+
+    agent_largest = max(agent_positions.values())
+    opp_largest = max(opp_positions.values())
+
+    score = 0
+
+    # Core material, but not too dominant.
+    # Top BLUE style does not only care about material.
+    score += 32 * (agent_total - opp_total)
+    score += 12 * (agent_largest - opp_largest)
+
+    # Survival / annoying movement.
+    score += 9 * spread_score(agent_positions)
+    score -= 7 * spread_score(opp_positions)
+
+    score += 2 * escape_score(agent_positions, opp_positions)
+    score -= 2 * escape_score(opp_positions, agent_positions)
+
+    score += 2 * open_space_score(agent_positions, opp_positions)
+    score -= 1 * open_space_score(opp_positions, agent_positions)
+
+    # Eat safely, not blindly.
+    score += 3 * safe_eat_score(agent_positions, opp_positions)
+    score -= 2 * safe_eat_score(opp_positions, agent_positions)
+
+    # Chase only edible targets.
+    score += 7 * edible_hunter_score(agent_positions, opp_positions)
+    score -= 5 * edible_hunter_score(opp_positions, agent_positions)
+
+    # Avoid being cleaned up.
+    score += survival_stack_score(agent_positions, opp_positions)
+    score -= survival_stack_score(opp_positions, agent_positions)
+
+    # Cascade usage.
+    score += cascade_pressure_score(agent_positions, opp_positions)
+    score -= cascade_pressure_score(opp_positions, agent_positions)
+
+    # Build when opponent has bigger stack.
+    score += build_if_weaker_score(agent_positions, opp_positions)
+
+    # Endgame: run if weaker, eat if stronger.
+    score += top_blue_endgame_score(agent_positions, opp_positions)
+
+    return score
+
+
+# ============================================================
+# 1. SPREAD SCORE
+# ============================================================
+
+def spread_score(positions: dict[tuple[int, int], int]) -> int:
+    """
+    Reward moderate spreading.
+    This makes the agent annoying to clean up.
+    """
+    items = list(positions.items())
+    score = 0
+
+    for i in range(len(items)):
+        (r1, c1), h1 = items[i]
+
+        for j in range(i + 1, len(items)):
+            (r2, c2), h2 = items[j]
+
+            dist = abs(r1 - r2) + abs(c1 - c2)
+            small_h = min(h1, h2)
+
+            if 2 <= dist <= 5:
+                score += 4 * small_h
+            elif dist == 1:
+                score -= 6 * small_h
+            elif dist >= 7:
+                score -= 1 * small_h
+
+    return score
+
+
+# ============================================================
+# 2. ESCAPE SCORE
+# ============================================================
+
+def escape_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Strong running-away logic.
+    Punish being close to equal/stronger enemies.
+    """
+    score = 0
+
+    for (r, c), h in my_positions.items():
+        closest_danger_dist = math.inf
+        closest_danger_h = 0
+
+        for (er, ec), eh in enemy_positions.items():
+            if eh >= h:
+                dist = abs(r - er) + abs(c - ec)
+
+                if dist < closest_danger_dist:
+                    closest_danger_dist = dist
+                    closest_danger_h = eh
+
+        if closest_danger_dist == 1:
+            score -= 220 * h
+            score -= 35 * closest_danger_h
+
+        elif closest_danger_dist == 2:
+            score -= 90 * h
+            score -= 20 * closest_danger_h
+
+        elif closest_danger_dist == 3:
+            score -= 30 * h
+
+        elif closest_danger_dist < math.inf:
+            score += 18 * h
+
+    return score
+
+
+# ============================================================
+# 3. OPEN SPACE SCORE
+# ============================================================
+
+def open_space_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Reward having escape routes.
+    Top BLUE survives because pieces have places to run.
+    """
+    score = 0
+
+    for (r, c), h in my_positions.items():
+        free_sides = 0
+        blocked_sides = 0
+
+        for d in CARDINAL_DIRECTIONS:
+            nr = r + d.r
+            nc = c + d.c
+
+            if not (0 <= nr <= 7 and 0 <= nc <= 7):
+                blocked_sides += 1
+                continue
+
+            if (nr, nc) in my_positions or (nr, nc) in enemy_positions:
+                blocked_sides += 1
+            else:
+                free_sides += 1
+
+        score += 25 * free_sides
+        score -= 18 * blocked_sides
+
+        # Small pieces especially need escape space.
+        if h <= 2:
+            score += 15 * free_sides
+
+        # Edge is dangerous because it limits escape.
+        edge_dist = min(r, 7 - r, c, 7 - c)
         if edge_dist == 0:
-            if is_agent:
-                agent_edge += 4 * h
-            else:
-                opp_edge += 4 * h
+            score -= 45 * h
         elif edge_dist == 1:
-            if is_agent:
-                agent_edge += 2 * h
-            else:
-                opp_edge += 2 * h
+            score -= 18 * h
 
-    #Eat calculations including 3 and 4 and 
-    for (r,c), h in agent_positions.items():
-        moves_count = 0
+    return score
+
+
+# ============================================================
+# 4. SAFE EAT SCORE
+# ============================================================
+
+def safe_eat_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Eat more, but only when it is not bait.
+    """
+    score = 0
+
+    for (r, c), h in my_positions.items():
         for d in CARDINAL_DIRECTIONS:
-            new_r , new_c = r + d.r , c + d.c 
-            if not (0 <= new_r <= 7 and 0 <= new_c <= 7 ):
+            nr = r + d.r
+            nc = c + d.c
+
+            if (nr, nc) not in enemy_positions:
                 continue
 
-            if (new_r, new_c) in agent_positions: #merging friendly token
-                moves_count += 1
-                new_height = agent_positions[(new_r, new_c)] + h 
+            enemy_h = enemy_positions[(nr, nc)]
 
-                opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                    new_r, new_c, new_height, opp_positions)
-                opp_cascade_kill += opp_cascade_after_merge // 2
-                agent_threat += opp_eat_after_merge // 2
-                agent_eat += agent_eat_after_merge // 2
+            if h >= enemy_h:
+                value = 0
 
-            elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
-                opp_h = opp_positions[(new_r, new_c)]
-                if h >= opp_h:
-                    moves_count += 1
-                    # agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
-                    agent_eat_bonus += (opp_h/h) * 15
-                    agent_eat += opp_h #score for just potential eating
+                # Basic eat reward.
+                value += 130 * enemy_h
 
-                    opp_cascade_after_eat, opp_eat_after_eat, agent_eat_after_eat = calculate_potential_risk_after_action(
-                        new_r, new_c, h, opp_positions)
-                    opp_cascade_kill += opp_cascade_after_eat // 2
-                    agent_threat += opp_eat_after_eat // 2
-                    agent_eat += agent_eat_after_eat // 2
+                # Strictly stronger eat is much better.
+                if h > enemy_h:
+                    value += 90 * enemy_h
+                else:
+                    value += 20 * enemy_h
 
-                    if h > opp_h:
-                        agent_safe_eat += opp_h
+                # Check if eating lands beside another equal/stronger enemy.
+                exposed = False
 
-                if opp_h >= h:
-                   agent_threat += h #gonna be eaten by enemy
+                for adj_d in CARDINAL_DIRECTIONS:
+                    ar = nr + adj_d.r
+                    ac = nc + adj_d.c
+
+                    if (ar, ac) in enemy_positions and (ar, ac) != (nr, nc):
+                        other_h = enemy_positions[(ar, ac)]
+
+                        if other_h >= h:
+                            exposed = True
+                            value -= 160 * h
+
+                if not exposed:
+                    value += 100
+
+                score += value
 
             else:
-                moves_count += 1 #move to empty cell
-                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                #     new_r, new_c, h, opp_positions)
-                # opp_cascade_kill += opp_cascade_after_merge // 2
-                # agent_threat += opp_eat_after_merge // 2
-                # agent_eat += agent_eat_after_merge // 2
-        if moves_count <= 1: 
-            agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
+                # We are edible.
+                score -= 150 * h
+
+    return score
 
 
-        #Cascade calculation
-        if h >= 2:
-            for d in CARDINAL_DIRECTIONS:
-                reach = h
-                for step in range (1, reach +1):
-                    new_r = r + (d.r * step)
-                    new_c = c + (d.c * step)
-                    if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
-                        agent_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
-                        break
+# ============================================================
+# 5. EDIBLE HUNTER SCORE
+# ============================================================
 
-                    push_steps = reach - step + 1
-                    final_r = new_r + d.r * push_steps
-                    final_c = new_c + d.c * push_steps
+def edible_hunter_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Chase only pieces we can actually eat.
+    Do not chase bigger stacks.
+    """
+    score = 0
 
-                    if (new_r, new_c) in opp_positions:
-                       
-                        enemy_height = opp_positions[(new_r,new_c)]
-                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                            agent_cascade_kill += enemy_height
-                        else:
-                            
-                            agent_bad_cascade_risk += enemy_height * 2
-                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
+    for (r, c), h in my_positions.items():
+        best_dist = math.inf
+        best_target_h = 0
+        closest_stronger = math.inf
 
-                        #     if after_edge < before_edge:
-                        #         agent_cascade_push += enemy_height
+        for (er, ec), eh in enemy_positions.items():
+            dist = abs(r - er) + abs(c - ec)
 
-                    elif (new_r, new_c) in agent_positions:
-                        own_height = agent_positions[(new_r, new_c)]
+            if h >= eh:
+                if dist < best_dist:
+                    best_dist = dist
+                    best_target_h = eh
+            else:
+                closest_stronger = min(closest_stronger, dist)
 
-                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                            agent_cascade_self_loss += own_height #losing our own agent
-                        # else:
-                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                        #     if after_edge < before_edge:
-                        #         agent_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
+        if best_dist < math.inf:
+            score += max(0, 8 - best_dist) * 12 * best_target_h
 
-    for (r,c), h in opp_positions.items():
-        moves_count = 0
+            if best_dist == 1:
+                score += 250 * best_target_h
+            elif best_dist == 2:
+                score += 90 * best_target_h
+            elif best_dist == 3:
+                score += 35 * best_target_h
+
+        # Run from stronger target.
+        if closest_stronger == 1:
+            score -= 220 * h
+        elif closest_stronger == 2:
+            score -= 90 * h
+        elif closest_stronger == 3:
+            score -= 30 * h
+
+    return score
+
+
+# ============================================================
+# 6. SURVIVAL STACK SCORE
+# ============================================================
+
+def survival_stack_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Keep pieces alive and annoying.
+    Reward small slippery pieces with escape routes.
+    """
+    score = 0
+
+    for (r, c), h in my_positions.items():
+        nearest_enemy = math.inf
+        nearest_stronger = math.inf
+        free_sides = 0
+
         for d in CARDINAL_DIRECTIONS:
-            new_r , new_c = r + d.r , c  + d.c 
-            if not (0 <= new_r <= 7 and 0 <= new_c <= 7 ):
-                continue
+            nr = r + d.r
+            nc = c + d.c
 
-            if (new_r, new_c) in opp_positions:
-                moves_count += 1
+            if 0 <= nr <= 7 and 0 <= nc <= 7:
+                if (nr, nc) not in my_positions and (nr, nc) not in enemy_positions:
+                    free_sides += 1
 
-                new_height = opp_positions[(new_r, new_c)] + h
+        for (er, ec), eh in enemy_positions.items():
+            dist = abs(r - er) + abs(c - ec)
+            nearest_enemy = min(nearest_enemy, dist)
 
-                agent_cascade_after_merge, agent_eat_after_merge, opp_eat_after_merge = calculate_potential_risk_after_action(
-                    new_r, new_c, new_height, agent_positions)
-                agent_cascade_kill += agent_cascade_after_merge // 2
-                opp_threat += agent_eat_after_merge // 2
-                opp_eat += opp_eat_after_merge // 2
+            if eh >= h:
+                nearest_stronger = min(nearest_stronger, dist)
 
-                # # not immediate eat threat and eat benefit 
-                # for adj_d in CARDINAL_DIRECTIONS:
-                #     adj_r, adj_c = new_r + adj_d.r, new_c + adj_d.c
-                #     if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
-                #         continue
-                    
-                #     if(adj_r, adj_c) in agent_positions:
-                #         agent_h = agent_positions[(adj_r, adj_c)]
-                #         if new_height >= agent_h:
-                #             opp_eat += agent_h // 2
-                #         if new_height <= agent_h:
-                #             opp_threat += new_height // 2
+        # Small pieces should be slippery and not adjacent.
+        if h <= 2:
+            score += 30 * free_sides
 
-            elif (new_r , new_c) in agent_positions:
-                agent_h = agent_positions[(new_r, new_c)]
-                if h >= agent_h:
-                    moves_count += 1
-                    opp_eat_bonus += (agent_h/h) * 15
-                    opp_eat += agent_h
-                    
-                    agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
-                        new_r, new_c, h, agent_positions)
-                    agent_cascade_kill += agent_cascade_after_eat // 2
-                    opp_threat += agent_eat_after_eat // 2
-                    opp_eat += opp_eat_after_eat // 2
+            if nearest_stronger == 1:
+                score -= 180 * h
+            elif nearest_stronger == 2:
+                score -= 70 * h
 
-                    if h > agent_h:
-                        opp_safe_eat += agent_h
+            if nearest_enemy >= 3:
+                score += 20
 
-                if agent_h >= h:
-                    opp_threat += h
-            else:
-                moves_count += 1
-                # agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
-                #         new_r, new_c, h, agent_positions)
-                # agent_cascade_kill += agent_cascade_after_eat // 2
-                # opp_threat += agent_eat_after_eat // 2
-                # opp_eat += opp_eat_after_eat // 2
+        # Big pieces can hold ground but still need mobility.
+        else:
+            score += 12 * free_sides
 
-        if moves_count<= 1:
-            opp_trapped += 1
-            
-            
-        #Cascade calculation
-        if h >= 2:
-            for d in CARDINAL_DIRECTIONS:
-                reach = h
-                for step in range (1, reach +1):
-                    new_r = r + (d.r * step)
-                    new_c = c + (d.c * step)
-                    if not (0 <= new_r <= 7 and 0 <= new_c <= 7):
-                        opp_cascade_self_loss += (reach - step + 1) #to check if i loss my own agent if i cascade
-                        break
+            if nearest_stronger == 1:
+                score -= 110 * h
 
-                    push_steps = reach - step + 1
-                    final_r = new_r + d.r * push_steps 
-                    final_c = new_c + d.c * push_steps
-
-                    if (new_r, new_c) in agent_positions:
-                       
-                        enemy_height = agent_positions[(new_r,new_c)]
-                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                            opp_cascade_kill += enemy_height
-                        else:
-                            opp_bad_cascade_risk += enemy_height * 2
-                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-
-                        #     if after_edge < before_edge:
-                        #         opp_cascade_push += enemy_height
-
-                    elif (new_r, new_c) in opp_positions:
-                        own_height = opp_positions[(new_r, new_c)]
-
-                        if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                            opp_cascade_self_loss += own_height #losing our own agent
-                        # else:
-                        #     before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
-                        #     after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
-                        #     if after_edge < before_edge:
-                        #         opp_cascade_self_loss += 1 #push ourselves TOWARDS THE EDGES
-
-    # For winning preperation
-    endgame = 0
-    agent_sum = sum(agent_positions.values()) #total height for agent
-    opp_sum = sum(opp_positions.values()) #total height for opp
-
-    #alinging and eat minus
-    # if agent_sum >= opp_sum + 5:
-    #     score -= 30 * len(opp_positions)
-    #     for (r, c), h in agent_positions.items():
-    #         for d in CARDINAL_DIRECTIONS:
-    #             nr = r + d.r
-    #             nc = c + d.c
-
-    #             if not (0 <= nr <= 7 and 0 <= nc <= 7):
-    #                 continue
-
-    #             if (nr, nc) in opp_positions:
-    #                 opp_h = opp_positions[(nr, nc)]
-
-    #                 if h > opp_h:
-    #                     score += 15 * opp_h
-    #                 elif h == opp_h:
-    #                     score += 7 * opp_h
-    
-    # to prevent draw, chase and eat more agressively
-    if agent_stacks + opp_stacks <= 5:
-        best_safe_dist = math.inf
-
-        for (r, c), h in agent_positions.items():
-            for (opp_r, opp_c), opp_h in opp_positions.items():
-
-                # only chase if our stack is strictly stronger
-                if h >= opp_h:
-                    dist = abs(r - opp_r) + abs(c - opp_c)
-                    best_safe_dist = min(best_safe_dist, dist)
-
-        if best_safe_dist < math.inf:
-            endgame += max(0, 8 - best_safe_dist) * 35
+    return score
 
 
-    #Endgame prep
-    #Assume that the situation is when one token is avoiding another token while one is trying to eat them and chasing around
-    if  (len(opp_positions) <= 4 and agent_sum >= opp_sum + 2): #condition for end game #try vs each other with +1,2 and none #len(opp_positions) <= 4 and
+# ============================================================
+# 7. CASCADE PRESSURE SCORE
+# ============================================================
 
-        for (opp_r, opp_c), opp_h in opp_positions.items():
+def cascade_pressure_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Use cascade for kill, push, escape, disruption.
+    Avoid exploding big stacks for no reason.
+    """
+    score = 0
 
-           #End game heuristic
-            closest_dist = math.inf
-            second_closest_dist = math.inf
-            hunters_adjacent = 0
-            stronger_hunters_near = 0
-            blocked_sides = 0 #trapping enemy by how many is it blocks
-            free_sides = 0 #how many sides are free
-            imm_eat = 0
-            # Count blocked escape squares around enemy
-            for d in CARDINAL_DIRECTIONS:
-                nr = opp_r + d.r
-                nc = opp_c + d.c
+    for (r, c), h in my_positions.items():
+        if h < 2:
+            continue
+
+        for d in CARDINAL_DIRECTIONS:
+            cascade_kill = 0
+            cascade_push = 0
+            cascade_hit = 0
+            self_loss = 0
+
+            for step in range(1, h + 1):
+                nr = r + d.r * step
+                nc = c + d.c * step
 
                 if not (0 <= nr <= 7 and 0 <= nc <= 7):
-                    blocked_sides += 1 #check if opponent is in the edge 
-                    continue
+                    self_loss += h - step + 1
+                    break
 
-                if (nr, nc) in agent_positions:
-                    blocked_sides += 1 #check if my agent is blocking the opponent
-                else:
-                    free_sides += 1 #if d is empty cell
+                push_steps = h - step + 1
+                final_r = nr + d.r * push_steps
+                final_c = nc + d.c * push_steps
 
-            # Count hunters and distance pressure
-            for (r, c), h in agent_positions.items():
-                dist = abs(r - opp_r) + abs(c - opp_c)
+                if (nr, nc) in enemy_positions:
+                    enemy_h = enemy_positions[(nr, nc)]
+                    cascade_hit += enemy_h
 
-                if dist < closest_dist:
-                    second_closest_dist = closest_dist
-                    closest_dist = dist
-                elif dist < second_closest_dist:
-                    second_closest_dist = dist
+                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                        cascade_kill += enemy_h
+                    else:
+                        before_edge = min(nr, 7 - nr, nc, 7 - nc)
+                        after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
 
-                if dist == 1 and h >= opp_h:
-                    hunters_adjacent += 1 #potential eat immidiately without movement
-                    imm_eat += opp_h
+                        if after_edge < before_edge:
+                            cascade_push += enemy_h
 
-                if dist <= 3 and h >= opp_h:
-                    stronger_hunters_near += 1 #potential eat but require movement
+                elif (nr, nc) in my_positions:
+                    own_h = my_positions[(nr, nc)]
 
-                if h < opp_h and dist <= 2:
-                    endgame -= 20 #if we will be eaten instead
+                    if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
+                        self_loss += own_h
 
-                # Endgame cascade alignment, line up and push to cascade
-                if h >= 2:
-                    same_row = (r == opp_r)
-                    same_col = (c == opp_c)
+            score += 160 * cascade_kill
+            score += 45 * cascade_push
+            score += 12 * cascade_hit
+            score -= 120 * self_loss
 
-                    if same_row or same_col:
-                        dist = abs(r - opp_r) + abs(c - opp_c)
+            # Avoid useless big-stack explosion.
+            if h >= 5 and cascade_kill == 0 and cascade_push == 0:
+                score -= 180
 
-                        # cascade can reach enemy
-                        if dist <= h:
-                            push_steps = h - dist + 1
-
-                            # check distance from enemy to edge in the push direction
-                            if same_col:
-                                if opp_r > r:
-                                    dist_to_edge = 7 - opp_r
-                                else:
-                                    dist_to_edge = opp_r
-                            else:  # same_row
-                                if opp_c > c:
-                                    dist_to_edge = 7 - opp_c
-                                else:
-                                    dist_to_edge = opp_c
-
-                            # reward lining up
-                            endgame += max(0, 8 - dist) * 15
-
-                            # bigger reward if cascade can push enemy off board
-                            if push_steps > dist_to_edge:
-                                endgame += 200 * opp_h
-                            else:
-                                endgame += 15 * opp_h #try 15 next
-
-    
-            if closest_dist < math.inf: #how close is my token to enemy
-                endgame += max(0, 8 - closest_dist) * 20 #8 bcs we have 8 row n column
-
-            if second_closest_dist < math.inf: #same for the 2nd token
-                endgame += max(0, 8 - second_closest_dist) * 8
-
-            # Reward trapping
-            endgame += blocked_sides * 40
-            endgame -= free_sides * 15
-            endgame += imm_eat * 250
-
-            # Reward actual capture pressure
-            endgame += hunters_adjacent * 100
-            endgame += min(stronger_hunters_near,3) * 25 #only max 3 token will chase
-            endgame -= 110 * len(opp_positions) #so that it preferes to end the game and not just chasing
-        
+    return score
 
 
-    play_turns = len(board._position_history) #N
-    if play_turns >= 220:
-        score += 75 * (agent_total - opp_total)
-        #score -= 30 * opp_total
-    #else:
-    score += 50 * (agent_total - opp_total)
+# ============================================================
+# 8. BUILD IF WEAKER
+# ============================================================
 
-    #Defensive mode
-    # losing = (agent_total <= opp_total - 3)
-    # if losing == True:
-    #     score -= 10 * agent_threat
-    #     score -= 7 *agent_trapped
+def build_if_weaker_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    If enemy has biggest stack, merge/build instead of hopeless chasing.
+    """
+    if not my_positions or not enemy_positions:
+        return 0
+
+    my_largest = max(my_positions.values())
+    enemy_largest = max(enemy_positions.values())
+
+    if my_largest >= enemy_largest:
+        return 0
+
+    score = 0
+
+    for (r, c), h in my_positions.items():
+        for d in CARDINAL_DIRECTIONS:
+            nr = r + d.r
+            nc = c + d.c
+
+            if (nr, nc) not in my_positions:
+                continue
+
+            new_h = h + my_positions[(nr, nc)]
+
+            score += 45 * new_h
+
+            if new_h >= enemy_largest:
+                score += 300
+
+            # Good if new merged stack can eat nearby target.
+            for (er, ec), eh in enemy_positions.items():
+                dist = abs(nr - er) + abs(nc - ec)
+
+                if new_h >= eh and dist <= 2:
+                    score += 80 * eh
+
+            # Bad if merge becomes edible.
+            for adj_d in CARDINAL_DIRECTIONS:
+                ar = nr + adj_d.r
+                ac = nc + adj_d.c
+
+                if (ar, ac) in enemy_positions:
+                    enemy_h = enemy_positions[(ar, ac)]
+
+                    if enemy_h >= new_h:
+                        score -= 180 * new_h
+
+    return score
 
 
-    score += 5 * (agent_largest - opp_largest)
-    #score += 5 * (agent_stacks - opp_stacks)
-    #score -= 3 * (agent_edge - opp_edge)
-    score -= 8 * (agent_trapped -opp_trapped )
-    score += 40 * (agent_eat - opp_eat ) #40
-    score += 20 * (agent_safe_eat - opp_safe_eat) #need to check this
-    score += 2 * (agent_eat_bonus- opp_eat_bonus) 
-    # score -= 15 * agent_threat
-    # score += 10 * opp_threat
-    score += 8 * (opp_threat - agent_threat)
-    score += 30 * (agent_cascade_kill - opp_cascade_kill)
-    score -= 10 * (agent_cascade_self_loss - opp_cascade_self_loss )
-    score -= 10 *  agent_bad_cascade_risk
-    score += 9 *  opp_bad_cascade_risk
-    #score -= 30 * len(opp_positions)
-    #score += 1 * ( agent_cascade_push - opp_cascade_push )
-    score += endgame
+# ============================================================
+# 9. TOP BLUE ENDGAME
+# ============================================================
+
+def top_blue_endgame_score(
+    my_positions: dict[tuple[int, int], int],
+    enemy_positions: dict[tuple[int, int], int]
+) -> int:
+    """
+    Endgame:
+    - if ahead: clean safely
+    - if weaker: run/build
+    - make opponent chase
+    """
+    if not my_positions or not enemy_positions:
+        return 0
+
+    my_total = sum(my_positions.values())
+    enemy_total = sum(enemy_positions.values())
+
+    my_largest = max(my_positions.values())
+    enemy_largest = max(enemy_positions.values())
+
+    total_stacks = len(my_positions) + len(enemy_positions)
+
+    if total_stacks > 7 and len(enemy_positions) > 4:
+        return 0
+
+    score = 0
+
+    # If ahead, reduce enemy stacks.
+    if my_total >= enemy_total:
+        score -= 80 * len(enemy_positions)
+
+    # If enemy biggest is bigger, do not chase blindly.
+    if enemy_largest > my_largest:
+        score += build_if_weaker_score(my_positions, enemy_positions)
+
+        # Reward staying away from the bigger stack.
+        for (r, c), h in my_positions.items():
+            for (er, ec), eh in enemy_positions.items():
+                if eh == enemy_largest and eh > h:
+                    dist = abs(r - er) + abs(c - ec)
+
+                    if dist <= 1:
+                        score -= 220 * h
+                    elif dist == 2:
+                        score -= 80 * h
+                    elif dist >= 4:
+                        score += 35 * h
+
+    # Immediate safe eat is huge.
+    for (r, c), h in my_positions.items():
+        for d in CARDINAL_DIRECTIONS:
+            nr = r + d.r
+            nc = c + d.c
+
+            if (nr, nc) in enemy_positions:
+                enemy_h = enemy_positions[(nr, nc)]
+
+                if h >= enemy_h:
+                    score += 350 * enemy_h
+
+                    if h > enemy_h:
+                        score += 150 * enemy_h
+
+    # Keep escape routes in endgame.
+    score += 2 * open_space_score(my_positions, enemy_positions)
+
     return score
 
 def calculate_potential_risk_after_action(
