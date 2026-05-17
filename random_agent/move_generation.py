@@ -3,7 +3,7 @@ from referee.game import PlayerColor, Coord, \
 from referee.game import Board
 
 import random 
-random.seed(10)
+# random.seed(10)
 
 def all_legal_actions_during_place(
     board: Board,

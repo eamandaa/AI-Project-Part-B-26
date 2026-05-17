@@ -177,4 +177,5 @@ class Agent:
         self._board.apply_action(action)
         # print(f"Cells for {self._color} = {self._cells}")
 
+
    
