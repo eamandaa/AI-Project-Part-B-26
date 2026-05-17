@@ -5,8 +5,8 @@ from referee.game import PlayerColor, Coord, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .alpha_beta import choose_best_action, iterative_deepening_play
-from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening_place
+from .alpha_beta import choose_best_action
+from .moving_order_heuristic import choose_best_action_during_placement_with_move_order, compute_distance_heatmap
 
 
 
@@ -25,6 +25,7 @@ class Agent:
         self._color = color
         self._turn_count = 0
         self._board = Board()
+        self._nodes_expanded = 0
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED (first player)")
@@ -78,21 +79,17 @@ class Agent:
         if self._turn_count < 4: 
             if self._board.turn_count == 0:
                 self._placement_start_time = referee["time_remaining"]
-
-            placements_remaining = 4 - self._turn_count
-            print(f"remaining placement count = {placements_remaining}, colour = {self._color}")
+            placements_remaining = 2
             match self._color:
                 case PlayerColor.RED:
-                    effective_max_depth = placements_remaining * 2 
-                    print(f"effective max depth = {effective_max_depth} for {self._color}")
-                    print(f"board turn count = {self._board.turn_count}")
-                    action =iterative_deepening_place(
+                    if self._board.turn_count == 7:
+                        placements_remaining = 1
+                    action =choose_best_action_during_placement_with_move_order(
                         self._board, 
+                        placements_remaining,
                         self._color,
                         self._distance_heatmap,
-                        self._tranposition_table,
                         self._board.turn_count,
-                        max_depth=effective_max_depth
                     )
                     if referee["time_remaining"] is not None:
                         print(f"time remaining for RED = {referee["time_remaining"]}")
@@ -100,16 +97,14 @@ class Agent:
                         print(f"space remaining for RED = {referee["space_remaining"]}")
                     return action
                 case PlayerColor.BLUE:
-                    effective_max_depth = placements_remaining * 2 - 1
-                    print(f"effective max depth = {effective_max_depth} for {self._color}")
-                    print(f"board turn count = {self._board.turn_count}")
-                    action =iterative_deepening_place(
+                    if self._board.turn_count == 7:
+                        placements_remaining = 1
+                    action =choose_best_action_during_placement_with_move_order(
                         self._board, 
+                        placements_remaining,
                         self._color,
                         self._distance_heatmap,
-                        self._tranposition_table,
                         self._board.turn_count,
-                        max_depth=effective_max_depth
                     )
                     if referee["time_remaining"] is not None:
                         print(f"time remaining for BLUE = {referee["time_remaining"]}")
@@ -117,11 +112,11 @@ class Agent:
                         print(f"space remaining for BLUE = {referee["space_remaining"]}")
                     return action
 
-        # refresh the transposition table 
-        if self._turn_count == 4:
-            if self._placement_start_time is not None:
-                print(f"Placement phase time taken = {self._placement_start_time - referee['time_remaining']}")
-            self._tranposition_table = {}
+        # # refresh the transposition table 
+        # if self._turn_count == 4:
+        #     if self._placement_start_time is not None:
+        #         print(f"Placement phase time taken = {self._placement_start_time - referee['time_remaining']}")
+        #     self._tranposition_table = {}
 
 
         # During play phase - return an action
@@ -129,7 +124,7 @@ class Agent:
         
         match self._color:
             case PlayerColor.RED:
-                action = iterative_deepening_play(self,self._board, self._color, time_limit=2.8)
+                action = choose_best_action(self,self._board, 4)
                 #print("Testing: RED is playing a MOVE action")
                 if referee["time_remaining"] is not None:
                         print(f"time remaining for RED = {referee["time_remaining"]}")
@@ -137,7 +132,7 @@ class Agent:
                     print(f"space remaining for RED = {referee["space_remaining"]}")
                 return action
             case PlayerColor.BLUE:
-                action = iterative_deepening_play(self,self._board,self._color, time_limit=2.8)
+                action = choose_best_action(self,self._board,4)
                 if referee["time_remaining"] is not None:
                         print(f"time remaining for BLUE = {referee["time_remaining"]}")
                 if referee['space_remaining'] is not None:
