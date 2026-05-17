@@ -11,7 +11,7 @@ import os
 WEIGHTS = {
     "material": int(os.getenv("W_MATERIAL", 140)),
     "eat": int(os.getenv("W_EAT", 50)),
-    "safe_eat": int(os.getenv("W_SAFE_EAT", 50)),
+    "safe_eat": int(os.getenv("W_SAFE_EAT", 40)),
     "threat": int(os.getenv("W_THREAT", 20)),
     "cascade_kill": int(os.getenv("W_CASCADE_KILL", 20)),
     "cascade_self_loss": int(os.getenv("W_CASCADE_SELF_LOSS", 15)),
@@ -127,7 +127,7 @@ def heuristic_func(
 
     # score += 140 * (agent_total - opp_total)
     # score += 50 * (agent_eat - opp_eat)
-    # score += 50 * (agent_safe_eat - opp_safe_eat)
+    # score += 40 * (agent_safe_eat - opp_safe_eat)
     # score += 20 * (opp_threat - agent_threat)
     # score += 20 * (agent_cascade_kill - opp_cascade_kill)
     # score -= 15 * (agent_cascade_penalty - opp_cascade_penalty)
