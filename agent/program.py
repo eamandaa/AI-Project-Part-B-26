@@ -5,7 +5,7 @@ from referee.game import PlayerColor, Coord, \
     Action, PlaceAction, MoveAction, EatAction, CascadeAction
 
 from referee.game import Board
-from .alpha_beta import choose_best_action, iterative_deepening_play
+from .alpha_beta import iterative_deepening_play
 from .moving_order_heuristic import compute_distance_heatmap, iterative_deepening_place
 
 
