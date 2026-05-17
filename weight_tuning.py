@@ -6,14 +6,10 @@ import re
 from datetime import datetime
 
 
-# ==============================
-# SETTINGS YOU CAN CHANGE
-# ==============================
-
 GAMES_PER_SETTING = 1
 
-# Change this to the command you normally use to run the game.
-# If your normal command is different, edit this line.
+# Change this to the command you normally use to run the game
+# If your normal command is different, edit this line
 BASE_COMMAND = [
     "python",
     "-m",
@@ -23,7 +19,7 @@ BASE_COMMAND = [
 ]
 
 # Weight ranges to test.
-# Keep this small first, otherwise it will take too long.
+# Keep this small first, otherwise it will take too long
 WEIGHT_GRID = {
     "W_MATERIAL": [110, 120, 130, 140],
     "W_EAT": [40, 50, 60],
@@ -35,9 +31,7 @@ WEIGHT_GRID = {
 }
 
 
-# ==============================
-# HELPER FUNCTIONS
-# ==============================
+
 
 def run_one_game(weights: dict[str, int], game_number: int) -> dict:
     env = os.environ.copy()
@@ -122,9 +116,7 @@ def generate_weight_settings():
         yield dict(zip(keys, combo))
 
 
-# ==============================
-# MAIN TUNING LOOP
-# ==============================
+
 
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -181,13 +173,13 @@ def main():
 
         avg_turns = sum(turn_list) / len(turn_list) if turn_list else None
 
-        # Score formula:
-        # prioritize RED wins, then faster wins.
+        # Score formula
+        # prioritize RED wins, then faster wins
         score = wins_red * 100 - wins_blue * 100 - unknown * 20
 
         if avg_turns is not None:
-            # If RED wins, faster is better.
-            # If mostly losing, longer survival is slightly better.
+            # If RED wins, faster is better
+            # If mostly losing, longer survival is slightly better
             if wins_red >= wins_blue:
                 score -= avg_turns * 0.2
             else:
@@ -205,7 +197,7 @@ def main():
 
         rows.append(row)
 
-        # Save after every setting so you do not lose progress.
+        # Save after every setting so you do not lose progress
         with open(output_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
