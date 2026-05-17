@@ -298,7 +298,9 @@ def check_mobility_and_eat_and_cascade_risk(
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
         if h >= 2:
-            agent_cascade_kill, agent_cascade_penalty = check_cascade(r,c,h, opp_positions, agent_positions)
+            current_agent_cascade_kill, current_agent_cascade_penalty = check_cascade(r,c,h, opp_positions, agent_positions)
+            agent_cascade_kill += current_agent_cascade_kill
+            agent_cascade_penalty += current_agent_cascade_penalty
 
 
     return agent_eat, agent_trapped, agent_threat, agent_safe_eat, agent_cascade_kill, agent_cascade_penalty
