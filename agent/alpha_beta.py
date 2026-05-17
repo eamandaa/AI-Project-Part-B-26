@@ -6,7 +6,17 @@ import math
 from .zobrist_hashing import compute_hash, ScoreFlag
 import time 
 from referee.game import BOARD_N
+import os
 
+WEIGHTS = {
+    "material": int(os.getenv("W_MATERIAL", 140)),
+    "eat": int(os.getenv("W_EAT", 50)),
+    "safe_eat": int(os.getenv("W_SAFE_EAT", 40)),
+    "threat": int(os.getenv("W_THREAT", 20)),
+    "cascade_kill": int(os.getenv("W_CASCADE_KILL", 20)),
+    "cascade_self_loss": int(os.getenv("W_CASCADE_SELF_LOSS", 15)),
+    "trapped": int(os.getenv("W_TRAPPED", 6)),
+}
 def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     best_action = None
     best_score = -math.inf
@@ -157,8 +167,7 @@ def heuristic_func(self,board,agent_color) -> int:
     agent_eat = 0
     opp_eat = 0
 
-    agent_eat_bonus = 0
-    opp_eat_bonus = 0
+
 
     agent_threat = 0
     opp_threat = 0
@@ -228,27 +237,12 @@ def heuristic_func(self,board,agent_color) -> int:
 
             if (new_r, new_c) in agent_positions: #merging friendly token
                 moves_count += 1
-                new_height = agent_positions[(new_r, new_c)] + h 
-
-                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                #     new_r, new_c, new_height, opp_positions)
-                # opp_cascade_kill += opp_cascade_after_merge 
-                # agent_threat += opp_eat_after_merge 
-                # agent_eat += agent_eat_after_merge 
 
             elif (new_r , new_c) in opp_positions: #check if i can eat opponent or will be eaten by the opponent depending on my height
                 opp_h = opp_positions[(new_r, new_c)]
                 if h >= opp_h:
                     moves_count += 1
-                    # agent_eat_bonus += opp_h * 10 #for prioritising qhich token to eat when there is multiple options (ie: eat h=3 instead of h=1)
-                    agent_eat_bonus += (opp_h/h) * 15
                     agent_eat += opp_h #score for just potential eating
-
-                    # opp_cascade_after_eat, opp_eat_after_eat, agent_eat_after_eat = calculate_potential_risk_after_action(
-                    #     new_r, new_c, h, opp_positions)
-                    # opp_cascade_kill += opp_cascade_after_eat 
-                    # agent_threat += opp_eat_after_eat 
-                    # agent_eat += agent_eat_after_eat  
 
                     if h > opp_h:
                         agent_safe_eat += opp_h
@@ -258,11 +252,7 @@ def heuristic_func(self,board,agent_color) -> int:
 
             else:
                 moves_count += 1 #move to empty cell
-                # opp_cascade_after_merge, opp_eat_after_merge, agent_eat_after_merge = calculate_potential_risk_after_action(
-                #     new_r, new_c, h, opp_positions)
-                # opp_cascade_kill += opp_cascade_after_merge // 2
-                # agent_threat += opp_eat_after_merge // 2
-                # agent_eat += agent_eat_after_merge // 2
+
         if moves_count <= 1: 
             agent_trapped += 1 #less than or equals to 1 movement i can make (mobility)
 
@@ -356,32 +346,11 @@ def heuristic_func(self,board,agent_color) -> int:
             if (new_r, new_c) in opp_positions:
                 moves_count += 1
 
-                new_height = opp_positions[(new_r, new_c)] + h
-
-                # agent_cascade_after_merge, agent_eat_after_merge, opp_eat_after_merge = calculate_potential_risk_after_action(
-                #     new_r, new_c, new_height, agent_positions)
-                # agent_cascade_kill += agent_cascade_after_merge
-                # opp_threat += agent_eat_after_merge 
-                # opp_eat += opp_eat_after_merge 
-
-                # # not immediate eat threat and eat benefit 
-                # for adj_d in CARDINAL_DIRECTIONS:
-                #     adj_r, adj_c = new_r + adj_d.r, new_c + adj_d.c
-                #     if not (0 <= adj_r <= 7 and 0 <= adj_c <= 7 ):
-                #         continue
-                    
-                #     if(adj_r, adj_c) in agent_positions:
-                #         agent_h = agent_positions[(adj_r, adj_c)]
-                #         if new_height >= agent_h:
-                #             opp_eat += agent_h // 2
-                #         if new_height <= agent_h:
-                #             opp_threat += new_height // 2
-
             elif (new_r , new_c) in agent_positions:
                 agent_h = agent_positions[(new_r, new_c)]
                 if h >= agent_h:
                     moves_count += 1
-                    opp_eat_bonus += (agent_h/h) * 15
+        
                     opp_eat += agent_h
                     
                     # agent_cascade_after_eat, agent_eat_after_eat, opp_eat_after_eat = calculate_potential_risk_after_action(
@@ -447,7 +416,7 @@ def heuristic_func(self,board,agent_color) -> int:
                         own_height = opp_positions[(new_r, new_c)]
 
                         if not (0 <= final_r <= 7 and 0 <= final_c <= 7):
-                            opp_cascade_self_loss += own_height #losing our own agent
+                            opp_cascade_self_loss += own_height #losing our own agent 
                         else:
                             before_edge = min(new_r, 7 - new_r, new_c, 7 - new_c)
                             after_edge = min(final_r, 7 - final_r, final_c, 7 - final_c)
@@ -630,7 +599,7 @@ def heuristic_func(self,board,agent_color) -> int:
     play_turns = len(board._position_history) #N
     if play_turns >= 220:
         #score += 75 * (agent_total - opp_total)
-        score -= 200 * opp_total
+        score += 200 * opp_total
     #else:
     #score += 30 * (agent_total - opp_total)
 
@@ -641,13 +610,23 @@ def heuristic_func(self,board,agent_color) -> int:
     #     score -= 7 * agent_trapped
 
 
-    score += 140 * (agent_total - opp_total)
-    score += 50 * (agent_eat - opp_eat)
-    score += 50 * (agent_safe_eat - opp_safe_eat)
-    score += 20 * (opp_threat - agent_threat)
-    score += 20 * (agent_cascade_kill - opp_cascade_kill)
-    score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
-    score -= 6 * (agent_trapped - opp_trapped)
+    score += WEIGHTS["material"] * (agent_total - opp_total)
+    score += WEIGHTS["eat"] * (agent_eat - opp_eat)
+    score += WEIGHTS["safe_eat"] * (agent_safe_eat - opp_safe_eat)
+    score += WEIGHTS["threat"] * (opp_threat - agent_threat)
+    score += WEIGHTS["cascade_kill"] * (agent_cascade_kill - opp_cascade_kill)
+    score -= WEIGHTS["cascade_self_loss"] * (agent_cascade_self_loss - opp_cascade_self_loss)
+    score -= WEIGHTS["trapped"] * (agent_trapped - opp_trapped)
+    score += endgame
+    return score
+
+    # score += 140 * (agent_total - opp_total)
+    # score += 50 * (agent_eat - opp_eat)
+    # score += 50 * (agent_safe_eat - opp_safe_eat)
+    # score += 20 * (opp_threat - agent_threat)
+    # score += 20 * (agent_cascade_kill - opp_cascade_kill)
+    # score -= 15 * (agent_cascade_self_loss - opp_cascade_self_loss)
+    # score -= 6 * (agent_trapped - opp_trapped)
     # score -= 10 *  agent_bad_cascade_risk
     # score += 9 *  opp_bad_cascade_risk
     # if imm_eat == 0 and agent_best_dist is not None:

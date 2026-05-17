@@ -6,6 +6,7 @@ import math
 from .zobrist_hashing import compute_hash, ScoreFlag
 import time 
 from referee.game import BOARD_N
+import math
 
 def choose_best_action(self,board,depth) -> Action: #The big picture of min max
     best_action = None
@@ -116,23 +117,10 @@ def min_max_algo(
     return best_score
 
 
-import math
-
-# Assumes these already exist:
-# PlayerColor, Coord, CARDINAL_DIRECTIONS
 
 
-# ============================================================
-# TOP BLUE STYLE HEURISTIC
-# Behaviour:
-# - spread pieces
-# - run from equal/stronger enemy
-# - eat safe targets
-# - avoid being cleaned up
-# - keep escape space
-# - use cascade pressure but avoid suicide
-# - build/merge if opponent has bigger stack
-# ============================================================
+#Heuristic func that split tokens into smaller one,
+#  run away from red and only eat when possible, so does not really chase the enemy token
 
 
 def heuristic_func(self, board, agent_color) -> int:
@@ -178,12 +166,10 @@ def heuristic_func(self, board, agent_color) -> int:
 
     score = 0
 
-    # Core material, but not too dominant.
-    # Top BLUE style does not only care about material.
     score += 32 * (agent_total - opp_total)
     score += 12 * (agent_largest - opp_largest)
 
-    # Survival / annoying movement.
+    # spread out token
     score += 9 * spread_score(agent_positions)
     score -= 7 * spread_score(opp_positions)
 
@@ -193,39 +179,34 @@ def heuristic_func(self, board, agent_color) -> int:
     score += 2 * open_space_score(agent_positions, opp_positions)
     score -= 1 * open_space_score(opp_positions, agent_positions)
 
-    # Eat safely, not blindly.
+    # eat score
     score += 3 * safe_eat_score(agent_positions, opp_positions)
     score -= 2 * safe_eat_score(opp_positions, agent_positions)
 
-    # Chase only edible targets.
+    # chase abit to our enemy token that is bigger than us
     score += 7 * edible_hunter_score(agent_positions, opp_positions)
     score -= 5 * edible_hunter_score(opp_positions, agent_positions)
 
-    # Avoid being cleaned up.
+    # surviving score
     score += survival_stack_score(agent_positions, opp_positions)
     score -= survival_stack_score(opp_positions, agent_positions)
 
-    # Cascade usage.
+    # cascade score
     score += cascade_pressure_score(agent_positions, opp_positions)
     score -= cascade_pressure_score(opp_positions, agent_positions)
 
-    # Build when opponent has bigger stack.
+    # merge with our own token if opponent is bigger
     score += build_if_weaker_score(agent_positions, opp_positions)
 
-    # Endgame: run if weaker, eat if stronger.
+    # endgame situation
     score += top_blue_endgame_score(agent_positions, opp_positions)
 
     return score
 
 
-# ============================================================
-# 1. SPREAD SCORE
-# ============================================================
-
 def spread_score(positions: dict[tuple[int, int], int]) -> int:
     """
-    Reward moderate spreading.
-    This makes the agent annoying to clean up.
+    Give score when it spreads away
     """
     items = list(positions.items())
     score = 0
@@ -249,17 +230,14 @@ def spread_score(positions: dict[tuple[int, int], int]) -> int:
     return score
 
 
-# ============================================================
-# 2. ESCAPE SCORE
-# ============================================================
+
 
 def escape_score(
     my_positions: dict[tuple[int, int], int],
     enemy_positions: dict[tuple[int, int], int]
 ) -> int:
     """
-    Strong running-away logic.
-    Punish being close to equal/stronger enemies.
+    if it gets close to an enemy, minus the score
     """
     score = 0
 
@@ -292,22 +270,20 @@ def escape_score(
     return score
 
 
-# ============================================================
-# 3. OPEN SPACE SCORE
-# ============================================================
+
+
 
 def open_space_score(
     my_positions: dict[tuple[int, int], int],
     enemy_positions: dict[tuple[int, int], int]
 ) -> int:
     """
-    Reward having escape routes.
-    Top BLUE survives because pieces have places to run.
+    if there is more space to go, give more score
     """
     score = 0
 
     for (r, c), h in my_positions.items():
-        free_sides = 0
+        free_sides = 0 
         blocked_sides = 0
 
         for d in CARDINAL_DIRECTIONS:
@@ -326,11 +302,11 @@ def open_space_score(
         score += 25 * free_sides
         score -= 18 * blocked_sides
 
-        # Small pieces especially need escape space.
+
         if h <= 2:
             score += 15 * free_sides
 
-        # Edge is dangerous because it limits escape.
+        # dont go to edge
         edge_dist = min(r, 7 - r, c, 7 - c)
         if edge_dist == 0:
             score -= 45 * h
@@ -340,16 +316,13 @@ def open_space_score(
     return score
 
 
-# ============================================================
-# 4. SAFE EAT SCORE
-# ============================================================
 
 def safe_eat_score(
     my_positions: dict[tuple[int, int], int],
     enemy_positions: dict[tuple[int, int], int]
 ) -> int:
     """
-    Eat more, but only when it is not bait.
+    eat only when it is safe
     """
     score = 0
 
@@ -366,16 +339,16 @@ def safe_eat_score(
             if h >= enemy_h:
                 value = 0
 
-                # Basic eat reward.
+                # Basic eat reward
                 value += 130 * enemy_h
 
-                # Strictly stronger eat is much better.
+                # Strictly stronger eat is much better
                 if h > enemy_h:
                     value += 90 * enemy_h
                 else:
                     value += 20 * enemy_h
 
-                # Check if eating lands beside another equal/stronger enemy.
+                # Check if eating lands beside another equal/stronger enemy
                 exposed = False
 
                 for adj_d in CARDINAL_DIRECTIONS:
@@ -395,23 +368,20 @@ def safe_eat_score(
                 score += value
 
             else:
-                # We are edible.
+                # can be eaten
                 score -= 150 * h
 
     return score
 
 
-# ============================================================
-# 5. EDIBLE HUNTER SCORE
-# ============================================================
+
 
 def edible_hunter_score(
     my_positions: dict[tuple[int, int], int],
     enemy_positions: dict[tuple[int, int], int]
 ) -> int:
     """
-    Chase only pieces we can actually eat.
-    Do not chase bigger stacks.
+    dont chase bigger pieces, only when it is smaller than us
     """
     score = 0
 
@@ -440,7 +410,7 @@ def edible_hunter_score(
             elif best_dist == 3:
                 score += 35 * best_target_h
 
-        # Run from stronger target.
+        # Run from stronger target
         if closest_stronger == 1:
             score -= 220 * h
         elif closest_stronger == 2:
@@ -451,17 +421,13 @@ def edible_hunter_score(
     return score
 
 
-# ============================================================
-# 6. SURVIVAL STACK SCORE
-# ============================================================
 
 def survival_stack_score(
     my_positions: dict[tuple[int, int], int],
     enemy_positions: dict[tuple[int, int], int]
 ) -> int:
     """
-    Keep pieces alive and annoying.
-    Reward small slippery pieces with escape routes.
+    keep small pieces
     """
     score = 0
 
