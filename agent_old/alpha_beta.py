@@ -18,8 +18,8 @@ def choose_best_action(self,board,depth) -> Action: #The big picture of min max
 
     for each_action in possible_actions:
         board.apply_action(each_action)
-        #maximizing = False
-        curr_score = min_max_algo(self, False, board, depth - 1, alpha= -math.inf, beta = math.inf) #try depth -1 or no
+        maximizing_next = (board.turn_color == self._color)
+        curr_score = min_max_algo(self, maximizing_next, board, depth - 1, alpha= -math.inf, beta = math.inf) #try depth -1 or no
         board.undo_action()
 
         if curr_score > best_score:
