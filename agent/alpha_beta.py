@@ -8,15 +8,6 @@ import time
 from referee.game import BOARD_N
 import os
 
-WEIGHTS = {
-    "material": int(os.getenv("W_MATERIAL", 140)),
-    "eat": int(os.getenv("W_EAT", 50)),
-    "safe_eat": int(os.getenv("W_SAFE_EAT", 40)),
-    "threat": int(os.getenv("W_THREAT", 20)),
-    "cascade_kill": int(os.getenv("W_CASCADE_KILL", 20)),
-    "cascade_self_loss": int(os.getenv("W_CASCADE_SELF_LOSS", 15)),
-    "trapped": int(os.getenv("W_TRAPPED", 6)),
-}
 
 def heuristic_func(
     self,
@@ -24,11 +15,15 @@ def heuristic_func(
     agent_color: PlayerColor
 ) -> int:
     """
-    1. token count 2. height count 3. eat opp including bonus (eg prioritise larger height) 4. opp eat us 
-    5. cascade kill 6. cascadee self loss 7. edge score 8. threathed token 
-    9. trapped 10. endgame 11.  
+    Properties:
+	1.Total heights of the tokens
+	2.Mobility of tokens, estimating through how trapped or free a token is 
+	3.Potential to perform an Eat action against enemy tokens, where condition is checked as height_{agent}\geq height_{enemy}
+	4.Bonus scoring for safe Eat actions (safe_eat in code), where additional reward is given when  height_{agent}>height_{enemy}, as this ensures the enemy cannot immediately eliminate the token with an Eat action 
+	5.Threat assessment, evaluating whether enemy tokens can perform an Eat action on the agent’s stacks
+	6.Cascade benefit of pushing an enemy token 
+	7.Cascade loss risk for the agent as it may lose its own tokens to perform Cascade 
 
-    #later can try adding score for pushing cascade too edge
     """
     if agent_color == PlayerColor.RED:
         opp_color = PlayerColor.BLUE
@@ -41,7 +36,7 @@ def heuristic_func(
             return 100000  
         elif winner == opp_color:
             return -100000
-        else: #DOUBLE CHECK FOR LATER - FOR TIE CONDITION
+        else: 
             return -5000
         
     agent_total = 0
@@ -114,28 +109,17 @@ def heuristic_func(
     if play_turns >= 220:
         score += 200 * opp_total
 
-
-    score += WEIGHTS["material"] * (agent_total - opp_total)
-    score += WEIGHTS["eat"] * (agent_eat - opp_eat)
-    score += WEIGHTS["safe_eat"] * (agent_safe_eat - opp_safe_eat)
-    score += WEIGHTS["threat"] * (opp_threat - agent_threat)
-    score += WEIGHTS["cascade_kill"] * (agent_cascade_kill - opp_cascade_kill)
-    score -= WEIGHTS["cascade_self_loss"] * (agent_cascade_penalty - opp_cascade_penalty)
-    score -= WEIGHTS["trapped"] * (agent_trapped - opp_trapped)
-    score += endgame
-    return score
-
-    # score += 140 * (agent_total - opp_total)
-    # score += 50 * (agent_eat - opp_eat)
-    # score += 40 * (agent_safe_eat - opp_safe_eat)
-    # score += 20 * (opp_threat - agent_threat)
-    # score += 20 * (agent_cascade_kill - opp_cascade_kill)
-    # score -= 15 * (agent_cascade_penalty - opp_cascade_penalty)
-    # score -= 6 * (agent_trapped - opp_trapped)
+    score += 140 * (agent_total - opp_total)
+    score += 50 * (agent_eat - opp_eat)
+    score += 40 * (agent_safe_eat - opp_safe_eat)
+    score += 20 * (opp_threat - agent_threat)
+    score += 20 * (agent_cascade_kill - opp_cascade_kill)
+    score -= 15 * (agent_cascade_penalty - opp_cascade_penalty)
+    score -= 6 * (agent_trapped - opp_trapped)
 
     score += endgame 
     return score 
-#then try tebalik and vs agent old
+
 
 def chase_aggresively_reward(
     agent_positions: dict[tuple[int, int], int],
@@ -414,7 +398,6 @@ def iterative_deepening_play(
         )
 
         if action is None or time.time() - start > time_limit:
-            print(f"Timed out at depth {depth}, using depth {depth-1} result for new agent")
             break
         
         best_action = action
@@ -529,7 +512,7 @@ def min_max_algo_with_time(
         value =  heuristic_func(self,board,self._color)
         self._tranposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
         return value
-    
+     
     possible_actions = all_legal_actions(self,board)
 
     if tt_move is not None and tt_move in possible_actions:
