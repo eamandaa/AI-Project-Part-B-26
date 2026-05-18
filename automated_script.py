@@ -39,7 +39,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("agent_one")
     parser.add_argument("agent_two")
-    parser.add_argument("--games", type=int, default=4)
+    parser.add_argument("--games", type=int, default=6)
     args = parser.parse_args()
 
     num_win_player_one = 0

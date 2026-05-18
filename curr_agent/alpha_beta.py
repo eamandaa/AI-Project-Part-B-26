@@ -9,9 +9,9 @@ from referee.game import BOARD_N
 import os
 
 WEIGHTS = {
-    "material": int(os.getenv("W_MATERIAL", 140)),
-    "eat": int(os.getenv("W_EAT", 50)),
-    "safe_eat": int(os.getenv("W_SAFE_EAT", 40)),
+    "material": int(os.getenv("W_MATERIAL", 110)),
+    "eat": int(os.getenv("W_EAT", 40)),
+    "safe_eat": int(os.getenv("W_SAFE_EAT", 30)),
     "threat": int(os.getenv("W_THREAT", 20)),
     "cascade_kill": int(os.getenv("W_CASCADE_KILL", 20)),
     "cascade_self_loss": int(os.getenv("W_CASCADE_SELF_LOSS", 15)),
