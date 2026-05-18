@@ -38,7 +38,7 @@ Potential improvement
 
 import time 
 
-from referee.game import Board, Coord, constants, PlayerColor, CARDINAL_DIRECTIONS, Action, PlaceAction, IllegalActionException
+from referee.game import Board, Coord, constants, PlayerColor, CARDINAL_DIRECTIONS, Action, PlaceAction
 from .zobrist_hashing import compute_hash, ScoreFlag
 
 def manhanttan_distance(
@@ -259,18 +259,12 @@ def evaluate_board(
     score = 0
 
     for my_coord in categories['my_stack']:
-        # distance from centre to current coordinate
-        # distance = manhanttan_distance(my_coord, coord_centre)
-        # score += (10 - distance)
-
         score += distance_heatmap[my_coord.r][my_coord.c]
         score -= score_push_off_board_risk(my_coord, categories['my_stack'], categories['enemy_stack'], board)
         score += score_eat(my_coord, categories['enemy_stack'])
         score += score_friendly_merge(my_coord, categories['my_stack'])
 
     for enemy_coord in categories['enemy_stack']:
-        # distance = manhanttan_distance(enemy_coord, coord_centre)
-        # score -= (10 - distance)
         
         score -= distance_heatmap[enemy_coord.r][enemy_coord.c]
         score += score_push_off_board_risk(enemy_coord, categories['enemy_stack'], categories['my_stack'], board)
@@ -279,50 +273,9 @@ def evaluate_board(
 
     return score
 
-def choose_best_action_during_placement_with_move_order(
-    board: Board,
-    depth: int,
-    agent_colour: PlayerColor,
-    empty_cells: list[Coord],
-    distance_heatmap: list[list[int]],
-    transposition_table: dict
-) -> Action:
-    """
-    main entry point 
-    Evaluate each possible action based on the score then return 
-    the action with highest score 
-    """
-    
-    best_action = None
-    best_score = float("-inf")
-
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells)
-
-    for action in possible_actions:
-        board.apply_action(action)
-        maximizing = (board.turn_color == agent_colour)
-        curr_score = min_max_algo(
-            maximizing, 
-            board, 
-            depth-1, 
-            alpha= float("-inf"), 
-            beta = float("inf"), 
-            my_colour=agent_colour,
-            empty_cells=empty_cells,
-            distance_heatmap=distance_heatmap,
-            transposition_table = transposition_table
-        ) 
-        board.undo_action()
-
-        if curr_score > best_score:
-            best_score = curr_score
-            best_action = action
-             
-    return best_action
-
 def all_legal_actions_during_pacement(
     board: Board,
-    empty_cells: list[Coord],
+    turn_count: int,
 ) -> list[Action]:
     """
     Find all possible Placement action that doesn't violate the 
@@ -332,119 +285,29 @@ def all_legal_actions_during_pacement(
 
     current_colour = board.turn_color
 
-    for coord in empty_cells:
+    for coord, cell in board._state.items():
         if not board[coord].is_empty:
             continue
 
-        place = PlaceAction(coord)
-        try:
-            board.apply_action(place)
-        except IllegalActionException:
-            continue
-
-        try:
-            place_score = score_moving_order(board, coord, current_colour)
-            place_actions[place] = place_score
-        finally:
-            board.undo_action()  
+        if turn_count != 0:
+            # after first round can't place next to enemy
+            if board._is_adjacent_to_opponent(coord):
+                continue
+            place = PlaceAction(coord)
+        else:
+            place = PlaceAction(coord)
+    
+        place_score = score_moving_order(board, coord, current_colour)
+        place_actions[place] = place_score
 
     sorted_placement_score = sorted(place_actions.items(),key = lambda x : x[1], reverse = True)
     return [action for action, _ in sorted_placement_score]
-
-def min_max_algo(
-    maximizing: bool, 
-    board: Board, 
-    depth: int, 
-    alpha: float, 
-    beta: float,
-    my_colour: PlayerColor,
-    empty_cells: list[Coord],
-    distance_heatmap: list[list[int]],
-    transposition_table: dict
-) -> int: 
-    """
-    Determine the next action using min_max algo
-    """
-    # Create hash
-    hash_key = compute_hash(board)
-    tt_move = None
-
-    # check whether already visit this board state before 
-    if hash_key in transposition_table:
-        stored_depth, stored_value, score_flag, stored_best_move = transposition_table[hash_key]
-        if stored_depth >= depth:
-            if score_flag == ScoreFlag.EXACT:
-                return stored_value
-            if score_flag == ScoreFlag.LOWER_BOUND:
-                alpha = max(alpha, stored_value)
-            if score_flag == ScoreFlag.UPPER_BOUND: 
-                beta = min(beta, stored_value)
-            if alpha >= beta:
-                return stored_value
-        tt_move = stored_best_move
-
-    # leaf node / terminal node 
-    if board.turn_count == constants.PLACEMENT_TURNS or not board._has_legal_actions() or depth == 0:
-        value = evaluate_board(board,my_colour, distance_heatmap)
-        transposition_table[hash_key] = (depth, value, ScoreFlag.EXACT, None)
-        return value
-    
-    # generate move 
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells)
-
-    # let tt be the first one, as it is prove better than heuristic guess
-    if tt_move is not None and tt_move in possible_actions:
-        possible_actions.remove(tt_move)
-        possible_actions.insert(0, tt_move)
-
-    alpha_original = alpha
-    beta_original = beta
-    best_move = None
-
-    if maximizing:
-        best_score = float('-inf')
-        
-        for each_action in possible_actions:
-            board.apply_action(each_action)
-            new_score = min_max_algo(False, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
-            board.undo_action()
-            if new_score > best_score:
-                best_score = new_score
-                best_move = each_action
-            alpha = max(alpha, best_score)
-            if alpha >= beta:
-                break
-    
-    else:
-        best_score = float('inf')
-    
-        for each_action in possible_actions:
-            board.apply_action(each_action)
-            new_score = min_max_algo(True, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table)
-            board.undo_action()
-            if new_score < best_score:
-                best_score = new_score
-                best_move = each_action
-            beta = min(beta, best_score)
-            if alpha >= beta:
-                break
-
-    if best_score >= beta_original:
-        score_flag = ScoreFlag.LOWER_BOUND
-    elif best_score <= alpha_original:
-        score_flag = ScoreFlag.UPPER_BOUND
-    else:
-        score_flag = ScoreFlag.EXACT
-
-    transposition_table[hash_key] = (depth, best_score, score_flag, best_move)
-    return best_score
 
 def score_moving_order(
     board: Board,
     curr_coord: Coord, 
     my_colour: PlayerColor
 ) -> int:
-    
     """
     Consider the locality of the tokens to decide the order of movement
     """
@@ -485,9 +348,9 @@ def score_moving_order(
 def iterative_deepening_place(
     board: Board,
     agent_colour: PlayerColor,
-    empty_cells: list[Coord],
     distance_heatmap: list[list[int]],
     transposition_table: dict,
+    turn_count: int,
     max_depth: int = 8,
     time_limit: float = 2.5
 ) -> Action:
@@ -495,9 +358,10 @@ def iterative_deepening_place(
     start = time.time()
 
     for depth in range(1, max_depth + 1):
+
         score, action = minimax_root(
-            board, depth, agent_colour, empty_cells,
-            distance_heatmap, transposition_table, start_time=start, 
+            board, depth, agent_colour,
+            distance_heatmap, transposition_table, turn_count, start_time=start, 
             time_limit=time_limit
         )
         
@@ -512,9 +376,9 @@ def minimax_root(
     board: Board,
     depth: int,
     agent_colour: PlayerColor,
-    empty_cells: list[Coord],
     distance_heatmap: list[list[int]],
     transposition_table: dict,
+    turn_count: int, 
     start_time: float,
     time_limit: float
 ) -> tuple[float, Action | None]:
@@ -528,7 +392,7 @@ def minimax_root(
     alpha = float("-inf")
     beta = float("inf")
 
-    possible_actions = all_legal_actions_during_pacement(board, empty_cells)
+    possible_actions = all_legal_actions_during_pacement(board, turn_count)
 
     hash_key = compute_hash(board)
 
@@ -553,9 +417,9 @@ def minimax_root(
                     alpha, 
                     beta, 
                     my_colour=agent_colour,
-                    empty_cells=empty_cells,
-                    distance_heatmap=distance_heatmap,
+                    distance_heatmap=distance_heatmap, 
                     transposition_table = transposition_table,
+                    turn_count = turn_count + 1,
                     start_time=start_time,
                     time_limit=time_limit
                 ) 
@@ -583,9 +447,9 @@ def min_max_algo_with_time(
     alpha: float, 
     beta: float,
     my_colour: PlayerColor,
-    empty_cells: list[Coord],
     distance_heatmap: list[list[int]],
     transposition_table: dict,
+    turn_count: int, 
     start_time,
     time_limit: float,
 ) -> int: 
@@ -621,7 +485,7 @@ def min_max_algo_with_time(
         return value
     
     # generate move 
-    possible_actions = all_legal_actions_during_pacement(board,empty_cells)
+    possible_actions = all_legal_actions_during_pacement(board,turn_count=turn_count)
 
     # let tt be the first one, as it is prove better than heuristic guess
     if tt_move is not None and tt_move in possible_actions:
@@ -639,7 +503,18 @@ def min_max_algo_with_time(
             board.apply_action(each_action)
             maximizing_next = (board.turn_color == my_colour)
             try:
-                new_score = min_max_algo_with_time(maximizing_next, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table, start_time, time_limit)
+                new_score = min_max_algo_with_time(
+                    maximizing_next, 
+                    board, 
+                    depth - 1,
+                    alpha,
+                    beta, 
+                    my_colour, 
+                    distance_heatmap, 
+                    transposition_table, 
+                    turn_count + 1, 
+                    start_time, 
+                    time_limit)
             except TimeoutError:
                 board.undo_action()
                 raise
@@ -658,7 +533,18 @@ def min_max_algo_with_time(
             board.apply_action(each_action)
             maximizing_next = (board.turn_color == my_colour)
             try:
-                new_score = min_max_algo_with_time(maximizing_next, board, depth - 1,alpha,beta, my_colour, empty_cells, distance_heatmap, transposition_table, start_time, time_limit)
+                new_score = min_max_algo_with_time(
+                    maximizing_next, 
+                    board, 
+                    depth - 1,
+                    alpha,
+                    beta, 
+                    my_colour, 
+                    distance_heatmap, 
+                    transposition_table, 
+                    turn_count + 1,
+                    start_time, 
+                    time_limit)
             except TimeoutError:
                 board.undo_action()
                 raise
