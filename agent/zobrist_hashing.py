@@ -1,5 +1,5 @@
 import random
-from referee.game import constants, Coord, PlayerColor, Board, Action
+from referee.game import constants, PlayerColor, Board, Action
 from enum import Enum
 
 random.seed(42)
