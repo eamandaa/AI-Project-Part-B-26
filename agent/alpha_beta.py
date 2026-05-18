@@ -14,8 +14,8 @@ def heuristic_func(
     Properties:
 	1.Total heights of the tokens
 	2.Mobility of tokens, estimating through how trapped or free a token is 
-	3.Potential to perform an Eat action against enemy tokens, where condition is checked as height_{agent}\geq height_{enemy}
-	4.Bonus scoring for safe Eat actions (safe_eat in code), where additional reward is given when  height_{agent}>height_{enemy}, as this ensures the enemy cannot immediately eliminate the token with an Eat action 
+	3.Potential to perform an Eat action against enemy tokens
+	4.Bonus scoring for safe Eat actions (safe_eat in code), where additional reward is given when  height_{agent}>height_{enemy}
 	5.Threat assessment, evaluating whether enemy tokens can perform an Eat action on the agent’s stacks
 	6.Cascade benefit of pushing an enemy token 
 	7.Cascade loss risk for the agent as it may lose its own tokens to perform Cascade 
@@ -107,7 +107,7 @@ def heuristic_func(
 
     score += 140 * (agent_total - opp_total)
     score += 50 * (agent_eat - opp_eat)
-    score += 40 * (agent_safe_eat - opp_safe_eat)
+    score += 50 * (agent_safe_eat - opp_safe_eat)
     score += 20 * (opp_threat - agent_threat)
     score += 20 * (agent_cascade_kill - opp_cascade_kill)
     score -= 15 * (agent_cascade_penalty - opp_cascade_penalty)
